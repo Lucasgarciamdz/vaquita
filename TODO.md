@@ -1,5 +1,29 @@
 # CHANGE LOGS
 
+## 0.0.1
+
+### Features
+
+- [x] [feature] Write a simple project description.
+- [] [to-do] Graph the architecture of the project.
+- [] [InProgress] Make the class diagram.
+
+### Commit message
+
+WIP - PROJECT PLANNING
+
+The project planning phase is in progress.
+
+changelog:
+    features:
+        - [feature] Write a simple project description.
+    to-do:
+        - [to-do] Graph the architecture of the project.
+    InProgress:
+        - [InProgress] Make the class diagram.
+
+---
+
 ## 0.0.0
 
 ### Features

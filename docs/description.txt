@@ -1,0 +1,3 @@
+Quiero crear un proyecto sobre una villetera virtual colaborativa.
+Muchas personas podrian conectarse a una misma cuenta y compartir el saldo de la misma.
+Ademas podran ver estadisticas de los gastos y el manejo de la cuenta en general.
