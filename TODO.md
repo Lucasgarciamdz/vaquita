@@ -5,22 +5,20 @@
 ### Features
 
 - [x] [feature] Write a simple project description.
-- [] [to-do] Graph the architecture of the project.
-- [] [InProgress] Make the class diagram.
+- [x] [feature] Graph the architecture of the project.
+- [x] [feature] Make the class diagram.
 
 ### Commit message
 
-WIP - PROJECT PLANNING
+PROJECT PLANNING - 0.0.1
 
-The project planning phase is in progress.
+The project planning phase is done.
 
 changelog:
     features:
         - [feature] Write a simple project description.
-    to-do:
-        - [to-do] Graph the architecture of the project.
-    InProgress:
-        - [InProgress] Make the class diagram.
+        - [feature] Graph the architecture of the project.
+        - [feature] Make the class diagram.
 
 ---
 
