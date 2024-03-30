@@ -12,7 +12,7 @@ from sqlalchemy.orm import scoped_session, sessionmaker
 
 Base = declarative_base()
 
-load_dotenv('/Users/lucas/facultad/final_compu2/.env')
+load_dotenv('../properties/.env')
 
 DATABASE_URL: str = os.getenv('DATABASE_URL', 'not set')
 
