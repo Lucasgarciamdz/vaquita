@@ -1,16 +1,19 @@
-from services.server_svc import ServerSvc
-
+import multiprocessing
+from vaquita.terminal_ui.bank_tui import BankApp
+from vaquita.terminal_ui.checking_account_tui import CheckingAccountApp
+from vaquita.server import start_server
 
 def main():
-    # Crear una instancia del servidor
-    server = ServerSvc(host='::', port=12345)
+    # Create a process for the banking application
+    bank_process = multiprocessing.Process(target=BankApp.run)
+    bank_process.start()
 
-    # Iniciar el servidor
-    server.start_server()
+    # Create a process for the checking account application
+    checking_account_process = multiprocessing.Process(target=CheckingAccountApp.run)
+    checking_account_process.start()
 
-    # Aceptar conexiones de forma continua
-    server.accept_connections()
-
+    # Start the server
+    start_server()
 
 if __name__ == "__main__":
     main()
