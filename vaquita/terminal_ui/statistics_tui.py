@@ -3,7 +3,7 @@ from rich.prompt import Prompt
 from rich import print
 from textual.app import App
 from textual.widgets import Placeholder
-from statistics_svc import StatisticsSvc
+from vaquita.statistics import StatisticsSvc
 import plotext as plt
 
 class StatisticsApp(App):
