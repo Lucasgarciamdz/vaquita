@@ -1,23 +1,25 @@
-"""Main module to run the server."""
-from http.server import HTTPServer
+import multiprocessing
+from vaquita.database.database_manager import DatabaseManager
+from vaquita.server import ServerSvc
+from vaquita.statistics import StatisticsSvc
 
-from controllers.readyz_ctrl import ReadyzController
-from database.database_manager import DatabaseManager
-from config.logger_config import setup_custom_logger
+def main():
+    """Main function."""
+    db_manager = DatabaseManager()
+    db_manager.create_database()
+    db_manager.create_tables()
 
-LOG = setup_custom_logger(__name__)
+    # Create a process for the server
+    server_process = multiprocessing.Process(target=ServerSvc().start)
+    server_process.start()
 
-def run(server_class=HTTPServer, handler_class=ReadyzController, port=8000):
-    """Run the server."""
-    LOG.info('Starting the server...')
-    DatabaseManager().create_database()
-    
-    LOG.info('Database created.')
-    server_address = ('', port)
-    httpd = server_class(server_address, handler_class)
-    print(f'Starting httpd on port {port}...')
-    httpd.serve_forever()
+    # Create a process for the statistics service
+    statistics_process = multiprocessing.Process(target=StatisticsSvc().start)
+    statistics_process.start()
 
+    # Wait for all processes to finish
+    server_process.join()
+    statistics_process.join()
 
-if __name__ == '__main__':
-    run()
+if __name__ == "__main__":
+    main()
