@@ -1,6 +1,7 @@
 import socket
 import threading
 
+
 class ServerSvc:
     def __init__(self, host='::', port=12345):
         self.host = host

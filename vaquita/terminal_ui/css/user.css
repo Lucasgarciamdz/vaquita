@@ -1,0 +1,33 @@
+/* Center the form */
+RegisterForm{
+    align: center middle;
+    width: 75%;
+    margin: 1;
+    padding: 1;
+    box-sizing: border-box;
+}
+
+LoginForm{
+    align: center middle;
+    width: 50%;
+    margin: 1;
+    padding: 1;
+}
+
+/* Add some margin to the inputs */
+Input {
+    margin-bottom: 1;
+    padding: 1;
+    width: 50%;
+}
+
+/* Style the buttons */
+Button {
+    background: #4CAF50; /* Green */
+    border: none;
+    color: white;
+    padding: 1;
+    text-align: center;
+    margin: 1;
+    width: 50%;
+}

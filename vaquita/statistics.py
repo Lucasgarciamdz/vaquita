@@ -1,8 +1,11 @@
 import multiprocessing
 from statistics import StatisticsSvc, StatisticsRepo
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from models import Base, StatisticsMdl
+
+from models import Base
+
 
 def statistics_process(queue, event):
     # Set up the database session
@@ -31,6 +34,7 @@ def statistics_process(queue, event):
             print('Averages:', averages)
             print('Largest:', largest)
             print('Category percentages:', category_percentages)
+
 
 if __name__ == '__main__':
     # Create the queue and the event

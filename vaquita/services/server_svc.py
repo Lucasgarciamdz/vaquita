@@ -31,5 +31,6 @@ def start_server(host, port):
 
 if __name__ == "__main__":
     import sys
+
     HOST, PORT = "localhost", int(sys.argv[1])
     start_server(HOST, PORT)

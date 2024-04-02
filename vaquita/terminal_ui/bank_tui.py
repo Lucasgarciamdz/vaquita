@@ -1,7 +1,8 @@
-from textual.app import App
-from textual.widgets import Button, ScrollView, Box
-from textual import events
 from bank_svc import BankSvc
+from textual import events
+from textual.app import App
+from textual.widgets import Button, ScrollView
+
 
 class BankApp(App):
     bank_service = BankSvc()  # Aquí deberías pasar tu repositorio de cuentas
@@ -42,5 +43,6 @@ class BankApp(App):
     def join_account(self, account_name: str):
         self.bank_service.join_account(account_name)
         self.console.print(f"[cyan]Joined account with name {account_name}[/cyan]")
+
 
 BankApp.run()

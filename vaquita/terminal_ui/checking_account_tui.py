@@ -1,10 +1,12 @@
+from checking_account_svc import CheckingAccountSvc
+from textual import events
 from textual.app import App
 from textual.widgets import Button, ScrollView
-from textual import events
-from checking_account_svc import CheckingAccountSvc
+
 from vaquita.config.logger_config import setup_custom_logger
 
 LOG = setup_custom_logger(__name__)
+
 
 class BankApp(App):
     account_service = CheckingAccountSvc()  # Aquí deberías pasar tu repositorio de cuentas
@@ -62,5 +64,6 @@ class BankApp(App):
         for transaction in transactions:
             self.console.print(f"[cyan]{transaction}[/cyan]")
             LOG.info(f"Transaction: {transaction}")
+
 
 BankApp.run()

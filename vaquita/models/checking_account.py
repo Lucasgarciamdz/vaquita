@@ -1,7 +1,8 @@
-from sqlalchemy import Column, Integer, Float, ForeignKey
+from sqlalchemy import Column, Integer, Float
 from sqlalchemy.orm import relationship, declarative_base
 
 Base = declarative_base()
+
 
 class CheckingAccount(Base):
     __tablename__ = 'checking_account'

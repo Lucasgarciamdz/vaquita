@@ -1,12 +1,15 @@
 import socket
+
+from textual import events
 from textual.app import App
 from textual.widgets import Button, ScrollView
-from textual import events
-from vaquita.terminal_ui.user_tui import UserApp
+
 from vaquita.config.logger_config import setup_custom_logger
 from vaquita.terminal_ui.bank_tui import BankApp
+from vaquita.terminal_ui.user_tui import UserApp
 
 LOG = setup_custom_logger(__name__)
+
 
 class ClientApp(App):
     def __init__(self, host='localhost', port=12345):
@@ -47,5 +50,6 @@ class ClientApp(App):
     async def on_exit(self, event: events.Exit):
         self.client_socket.close()
         LOG.info("Closed connection to server")
+
 
 ClientApp.run()

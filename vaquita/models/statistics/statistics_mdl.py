@@ -1,7 +1,8 @@
-from sqlalchemy import Column, Integer, Numeric, Date, ForeignKey, JSON
+from sqlalchemy import Column, Integer, Numeric, JSON
 from sqlalchemy.orm import declarative_base
 
 Base = declarative_base()
+
 
 class StatisticsMdl(Base):
     """statistics."""

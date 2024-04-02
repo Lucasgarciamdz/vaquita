@@ -1,6 +1,8 @@
-from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm import Session
+
 from vaquita.config.logger_config import setup_custom_logger
+
 
 class BaseRepo:
     def __init__(self, model, session: Session):

@@ -1,10 +1,11 @@
+import plotext as plt
 from rich.console import Console
 from rich.prompt import Prompt
-from rich import print
 from textual.app import App
 from textual.widgets import Placeholder
+
 from vaquita.statistics import StatisticsSvc
-import plotext as plt
+
 
 class StatisticsApp(App):
     async def on_mount(self):
@@ -21,17 +22,17 @@ class StatisticsApp(App):
             else:
                 if command == 'pie_chart':
                     categories = [
-                        "total_food", 
-                        "total_rent", 
-                        "total_services", 
-                        "total_transportation", 
-                        "total_utilities", 
-                        "total_health", 
-                        "total_insurance", 
-                        "total_personal", 
-                        "total_entertainment", 
-                        "total_education", 
-                        "total_savings", 
+                        "total_food",
+                        "total_rent",
+                        "total_services",
+                        "total_transportation",
+                        "total_utilities",
+                        "total_health",
+                        "total_insurance",
+                        "total_personal",
+                        "total_entertainment",
+                        "total_education",
+                        "total_savings",
                         "total_salary"
                     ]
                     data = [statistics_service.get_metric_data(category) for category in categories]
@@ -41,5 +42,6 @@ class StatisticsApp(App):
                     data = statistics_service.get_line_graph_data()
                     plt.plot(data)
                     plt.show()
+
 
 StatisticsApp.run()

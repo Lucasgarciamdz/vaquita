@@ -1,8 +1,9 @@
-from sqlalchemy import Column, Integer, String, ForeignKey
+from sqlalchemy import Column, Integer, String
 from sqlalchemy.orm import relationship, declarative_base
 from werkzeug.security import generate_password_hash, check_password_hash
 
 Base = declarative_base()
+
 
 class User(Base):
     """User model."""
@@ -15,7 +16,6 @@ class User(Base):
     password_hash = Column(String)
 
     checking_accounts = relationship('CheckingAccountMdl', back_populates='user')
-
 
     def set_password(self, password):
         """Hash the password and store the hash."""
