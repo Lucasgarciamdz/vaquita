@@ -2,7 +2,10 @@ from services.checking_account_svc import CheckingAccountSvc
 from textual import on
 from textual.containers import ScrollableContainer
 from textual.screen import Screen
+from textual.app import App
 from textual.widgets import Button, Input, Label
+from textual.reactive import reactive
+
 
 account_service = CheckingAccountSvc()
 
@@ -35,11 +38,10 @@ class AddTransactionForm(Screen):
         yield Button("Add Transaction", id="add_transaction_btn")
 
 
-class AccountScreen(Screen):
+class AccountScreen(App):
     CSS_PATH = "./css/account.css"
 
-    def __init__(self, user):
-        self.user = user
+    user_id = reactive(None)
 
     def compose(self):
         balance = account_service.get_balance("account_name")

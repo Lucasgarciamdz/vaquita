@@ -18,7 +18,7 @@ class RegisterForm(Screen):
 
         try:
             user_id = user_svc.register(name, email, password)
-            self.dismiss(user_id)
+            self.mount(Static(user_id))
         except Exception as e:
             self.mount(Static(str(e)))
 

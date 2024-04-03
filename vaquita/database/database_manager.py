@@ -11,9 +11,14 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.orm import scoped_session, sessionmaker
 from sqlalchemy import DDL
 
+# Get the absolute path of the directory where the script is located
+script_dir = os.path.dirname(os.path.abspath(__file__))
 
-load_dotenv('/Users/lucas/facultad/final_compu2/vaquita/properties/.env')
+# Construct the path to the .env file
+env_path = os.path.join(script_dir, '../properties/.env')
 
+# Load the .env file
+load_dotenv(env_path)
 DATABASE_URL: str = os.getenv('DATABASE_URL', 'not set')
 
 LOG: Logger = setup_custom_logger(__name__)

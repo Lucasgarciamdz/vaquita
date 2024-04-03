@@ -2,6 +2,7 @@ from textual import events, on
 from textual.app import App
 from textual.screen import Screen
 from textual.widgets import Button, Input, Static
+from textual.reactive import reactive
 from services.checking_account_svc import CheckingAccountSvc
 
 account_service = CheckingAccountSvc()
@@ -9,9 +10,8 @@ account_service = CheckingAccountSvc()
 class ConfigCheckingAccountScreen(Screen):
     CSS_PATH = "./css/config_checking_account.css"
 
-    def __init__(self, user_id):
-        self.user_id = user_id
-
+    user_id = reactive(None)
+    
     @on(Button.Pressed, "#create_bank")
     def show_create_bank(self):
         self.dismiss("create_bank")

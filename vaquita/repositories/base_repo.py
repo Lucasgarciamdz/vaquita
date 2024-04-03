@@ -12,6 +12,7 @@ class BaseRepo:
     def add(self, entity):
         self.session.add(entity)
         self.session.commit()
+        self.session.refresh(entity)
         self.log.info(f"Added entity: {entity}")
 
     def get(self, id):
