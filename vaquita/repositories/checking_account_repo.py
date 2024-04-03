@@ -1,6 +1,6 @@
-from base_repo import BaseRepo
-from vaquita.database.database_manager import DatabaseManager
-from vaquita.models.checking_account import CheckingAccountMdl
+from database.database_manager import DatabaseManager
+from models.bank.checking_account import CheckingAccountMdl
+from repositories.base_repo import BaseRepo
 
 db = DatabaseManager()
 
@@ -14,3 +14,6 @@ class CheckingAccountRepo(BaseRepo):
 
     def get_by_account_number(self, account_number):
         return self.session.query(CheckingAccountMdl).filter_by(account_number=account_number).first()
+
+    def get_by_account_name(self, account_name):
+        return self.session.query(CheckingAccountMdl).filter_by(name=account_name).first()

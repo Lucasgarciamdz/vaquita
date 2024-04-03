@@ -1,10 +1,8 @@
+from models.base_mdl import BaseMdl
 from sqlalchemy import Column, Integer, Numeric, JSON
-from sqlalchemy.orm import declarative_base
-
-Base = declarative_base()
 
 
-class StatisticsMdl(Base):
+class StatisticsMdl(BaseMdl):
     """statistics."""
 
     __tablename__ = 'Statistics'

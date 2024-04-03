@@ -1,12 +1,9 @@
 from textual import on
 from textual.screen import Screen
-from textual.widgets import Button, Input
-from .user_tui import RegisterForm, LoginForm
-
+from textual.widgets import Button
 
 
 class WelcomingScreen(Screen):
-
     CSS_PATH = "./css/user.css"
 
     @on(Button.Pressed, "#register")
@@ -20,4 +17,3 @@ class WelcomingScreen(Screen):
     def compose(self):
         yield Button("Register", variant="primary", id="register")
         yield Button("Login", variant="primary", id="login")
-

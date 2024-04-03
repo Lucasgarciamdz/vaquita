@@ -1,9 +1,8 @@
 from enum import Enum as PyEnum
 
-from sqlalchemy import Column, Integer, String, ForeignKey, Enum, DateTime, Numeric
-from sqlalchemy.orm import relationship, declarative_base
-
-Base = declarative_base()
+from models.base_mdl import BaseMdl
+from sqlalchemy import Column, Integer, String, ForeignKey, Enum, DateTime, Numeric, Boolean
+from sqlalchemy.orm import relationship
 
 
 class TransactionCategory(PyEnum):
@@ -29,7 +28,7 @@ class TransactionType(PyEnum):
     TRANSFER = "Transfer"
 
 
-class TransactionMdl(Base):
+class TransactionMdl(BaseMdl):
     """Transaction model."""
 
     __tablename__ = 'transaction'
@@ -46,7 +45,7 @@ class TransactionMdl(Base):
     user_id = Column(Integer, ForeignKey('user.id'))
 
     checking_account = relationship('CheckingAccountMdl', back_populates='transactions')
-    user = relationship('User', back_populates='transactions')
+    user = relationship('UserMdl', back_populates='transactions')
 
     def __repr__(self):
         return f'Transaction(id={self.id}, amount={self.amount},recurring={self.recurring}, transaction_type={self.transaction_type}, category={self.category}, user_id={self.user_id})'

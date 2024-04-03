@@ -5,14 +5,12 @@ from typing import Optional
 
 from config.logger_config import setup_custom_logger
 from dotenv import load_dotenv
+from models.base_mdl import BaseMdl
 from sqlalchemy import create_engine, exc, text
 from sqlalchemy.engine import Engine
-from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import scoped_session, sessionmaker
 
-Base = declarative_base()
-
-load_dotenv('../properties/.env')
+load_dotenv('/Users/lucas/facultad/final_compu2/vaquita/properties/.env')
 
 DATABASE_URL: str = os.getenv('DATABASE_URL', 'not set')
 
@@ -58,12 +56,13 @@ class DatabaseManager:  # noqa: WPS306
     def create_database(self) -> None:
         """Create all tables in the database."""
         LOG.info('Creating database...')
-        Base.metadata.create_all(self.engine)
+        from models.base_mdl import BaseMdl
+        BaseMdl.metadata.create_all(self.engine)
 
     def delete_database(self) -> None:
         """Drop all tables in the database."""
         LOG.info('Deleting database...')
-        Base.metadata.drop_all(self.engine)
+        BaseMdl.metadata.drop_all(self.engine)
 
     def check_connection(self) -> bool:
         """

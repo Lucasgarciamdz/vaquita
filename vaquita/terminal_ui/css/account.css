@@ -1,17 +1,10 @@
 /* Center the form */
-RegisterForm {
+AddTransactionForm, TransactionList, AccountScreen {
     align: center middle;
     width: 75%;
     margin: 1;
     padding: 1;
     box-sizing: border-box;
-}
-
-LoginForm {
-    align: center middle;
-    width: 50%;
-    margin: 1;
-    padding: 1;
 }
 
 /* Add some margin to the inputs */
@@ -30,4 +23,11 @@ Button {
     text-align: center;
     margin: 1;
     width: 50%;
+}
+
+/* Style the labels */
+Label {
+    margin: 1;
+    width: 100%;
+    color: white;
 }

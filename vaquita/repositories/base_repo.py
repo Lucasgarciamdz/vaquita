@@ -1,11 +1,10 @@
+from config.logger_config import setup_custom_logger
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.orm import Session
-
-from vaquita.config.logger_config import setup_custom_logger
+from sqlalchemy.orm import scoped_session
 
 
 class BaseRepo:
-    def __init__(self, model, session: Session):
+    def __init__(self, model, session: scoped_session):
         self.model = model
         self.session = session
         self.log = setup_custom_logger(self.__class__.__name__)

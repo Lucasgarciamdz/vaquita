@@ -1,22 +1,22 @@
+from models.base_mdl import BaseMdl
 from sqlalchemy import Column, ForeignKey, Integer, Numeric, String
-from sqlalchemy.orm import declarative_base, relationship
+from sqlalchemy.orm import relationship
 from werkzeug.security import check_password_hash, generate_password_hash
 
-Base = declarative_base()
 
-
-class CheckingAccountMdl(Base):
+class CheckingAccountMdl(BaseMdl):
     """Checking account model."""
 
     __tablename__ = 'checking_account'
 
     id = Column(Integer, primary_key=True)
+    name = Column(String)
     account_number = Column(String)
     balance = Column(Numeric)
     user_id = Column(Integer, ForeignKey('user.id'))
     password_hash = Column(String)
 
-    user = relationship('User', back_populates='checking_accounts')
+    user = relationship('UserMdl', back_populates='checking_accounts')
     transactions = relationship('TransactionMdl', back_populates='checking_account')
 
     def set_password(self, password):
