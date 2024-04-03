@@ -5,7 +5,7 @@ from textual.app import App
 from textual.widgets import Button, ScrollView
 
 from vaquita.config.logger_config import setup_custom_logger
-from vaquita.terminal_ui.bank_tui import BankApp
+from vaquita.terminal_ui.config_checking_account import BankApp
 from vaquita.terminal_ui.user_tui import UserApp
 
 LOG = setup_custom_logger(__name__)

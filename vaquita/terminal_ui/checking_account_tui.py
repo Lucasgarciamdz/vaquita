@@ -38,6 +38,9 @@ class AddTransactionForm(Screen):
 class AccountScreen(Screen):
     CSS_PATH = "./css/account.css"
 
+    def __init__(self, user):
+        self.user = user
+
     def compose(self):
         balance = account_service.get_balance("account_name")
         yield Label(f"[blue]Balance for account_name: {10}[/blue]")

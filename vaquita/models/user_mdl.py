@@ -15,8 +15,6 @@ class UserMdl(BaseMdl):
     password_hash = Column(String(256))
 
     checking_accounts = relationship('CheckingAccountMdl', back_populates='user')
-
-    # Use a string to specify the relationship
     transactions = relationship('TransactionMdl', back_populates='user')
 
     def set_password(self, password):

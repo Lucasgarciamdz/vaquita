@@ -41,8 +41,8 @@ class TransactionMdl(BaseMdl):
     notes = Column(String)
     recurring = Column(Boolean)
     description = Column(String)
-    checking_account_id = Column(Integer, ForeignKey('checking_account.id'))
     user_id = Column(Integer, ForeignKey('user.id'))
+    checking_account_id = Column(Integer, ForeignKey('checking_account.id'))
 
     checking_account = relationship('CheckingAccountMdl', back_populates='transactions')
     user = relationship('UserMdl', back_populates='transactions')

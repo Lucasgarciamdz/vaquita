@@ -1,5 +1,5 @@
 from database.database_manager import DatabaseManager
-from models.bank.checking_account import CheckingAccountMdl
+from models.bank.checking_account_mdl import CheckingAccountMdl
 from repositories.base_repo import BaseRepo
 
 db = DatabaseManager()

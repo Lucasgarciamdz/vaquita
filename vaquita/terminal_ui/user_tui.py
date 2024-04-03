@@ -1,7 +1,7 @@
 from services.user_svc import UserSvc
 from textual import on
 from textual.screen import Screen
-from textual.widgets import Button, Input, Label
+from textual.widgets import Button, Input, Label, Static
 
 user_svc = UserSvc()
 
@@ -17,10 +17,10 @@ class RegisterForm(Screen):
         password = form_data[2].value
 
         try:
-            user_svc.register(name, email, password)
-            self.dismiss(True)
+            user_id = user_svc.register(name, email, password)
+            self.dismiss(user_id)
         except Exception as e:
-            self.mount(Label(str(e)))
+            self.mount(Static(str(e)))
 
     def compose(self):
         yield Input(placeholder="Name")
@@ -39,10 +39,10 @@ class LoginForm(Screen):
         password = form_data[1].value
 
         try:
-            user_svc.login(email, password)
-            self.dismiss(True)
+            user_id = user_svc.login(email, password)
+            self.dismiss(user_id)
         except Exception as e:
-            self.mount(Label(str(e)))
+            self.mount(Static(str(e)))
 
     def compose(self):
         yield Input(placeholder="Email")

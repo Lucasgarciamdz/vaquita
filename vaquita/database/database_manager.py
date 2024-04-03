@@ -9,6 +9,8 @@ from models.base_mdl import BaseMdl
 from sqlalchemy import create_engine, exc, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import scoped_session, sessionmaker
+from sqlalchemy import DDL
+
 
 load_dotenv('/Users/lucas/facultad/final_compu2/vaquita/properties/.env')
 
@@ -57,12 +59,17 @@ class DatabaseManager:  # noqa: WPS306
         """Create all tables in the database."""
         LOG.info('Creating database...')
         from models.base_mdl import BaseMdl
+        from models.bank.transaction_mdl import TransactionMdl
+        from models.bank.checking_account_mdl import CheckingAccountMdl
+        from models.user_mdl import UserMdl
         BaseMdl.metadata.create_all(self.engine)
 
     def delete_database(self) -> None:
         """Drop all tables in the database."""
         LOG.info('Deleting database...')
-        BaseMdl.metadata.drop_all(self.engine)
+        with self.engine.begin() as connection:
+            for table in reversed(BaseMdl.metadata.sorted_tables):
+                connection.execute(DDL(f'DROP TABLE IF EXISTS "{table.name}" CASCADE'))
 
     def check_connection(self) -> bool:
         """
