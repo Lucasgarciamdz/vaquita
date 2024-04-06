@@ -1,14 +1,8 @@
 # base_mdl.py
-from sqlalchemy import MetaData, Table, Column, Integer, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
 
 Base = declarative_base()
 
-metadata = MetaData()
-user_account_association = Table('user_account_association', metadata,
-                                 Column('user_id', Integer, ForeignKey('user.id')),
-                                 Column('account_id', Integer, ForeignKey('checking_account.id'))
-                                 )
 
 class BaseMdl(Base):
     """Base class for all models."""

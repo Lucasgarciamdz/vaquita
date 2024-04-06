@@ -4,6 +4,7 @@ from textual.widgets import Header, Footer, Static
 from database.database_manager import DatabaseManager
 from services.checking_account_svc import CheckingAccountSvc
 from services.user_svc import UserSvc
+from terminal_ui.checking_account_tui import CheckingAccountScreen
 from terminal_ui.config_checking_account import ConfigCheckingAccountScreen
 from terminal_ui.user_tui import RegisterForm, LoginForm
 from terminal_ui.welcoming_tui import WelcomingScreen
@@ -26,8 +27,11 @@ class VaquitaApp(App):
         db.delete_database()
         db.create_database()
 
+        def display_main_account(user_id):
+            self.push_screen(CheckingAccountScreen(user_id))
+
         def display_main_menu(user_id):
-            self.push_screen(ConfigCheckingAccountScreen(user_id))
+            self.push_screen(ConfigCheckingAccountScreen(user_id), display_main_account)
             # if user_service.get_user_accounts(user_id):
             # else:
             #     self.push_screen(AccountScreen(user_id))

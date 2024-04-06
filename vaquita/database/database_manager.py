@@ -3,18 +3,14 @@ import os
 from logging import Logger
 from typing import Optional
 
-from config.logger_config import setup_custom_logger
 from dotenv import load_dotenv
-from models.base_mdl import BaseMdl
-from models.bank.checking_account_mdl import CheckingAccountMdl
-from models.bank.transaction_mdl import TransactionMdl
-from models.user_mdl import UserMdl
-from models.base_mdl import user_account_association
-from models import *
 from sqlalchemy import DDL
 from sqlalchemy import create_engine, exc, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import scoped_session, sessionmaker
+
+from config.logger_config import setup_custom_logger
+from models.base_mdl import BaseMdl
 
 # Get the absolute path of the directory where the script is located
 script_dir = os.path.dirname(os.path.abspath(__file__))

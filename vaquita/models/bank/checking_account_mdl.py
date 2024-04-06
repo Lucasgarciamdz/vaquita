@@ -1,9 +1,16 @@
-from models.base_mdl import BaseMdl, user_account_association
 from sqlalchemy import Column, ForeignKey, Integer, Numeric, String, Table, MetaData
 from sqlalchemy.orm import relationship
 from werkzeug.security import check_password_hash, generate_password_hash
 
+from models.base_mdl import BaseMdl
+
 metadata = MetaData()
+
+user_account_association = Table('user_account_association',
+                                 BaseMdl.metadata,
+                                 Column('user_id', Integer, ForeignKey('user.id')),
+                                 Column('account_id', Integer, ForeignKey('checking_account.id'))
+                                 )
 
 
 class CheckingAccountMdl(BaseMdl):
@@ -29,4 +36,4 @@ class CheckingAccountMdl(BaseMdl):
         return check_password_hash(self.password_hash, password)
 
     def __repr__(self):
-        return f'CheckingAccount(id={self.id}, account_number={self.account_number}, balance={self.balance}, user_id={self.user_id})'
+        return f'CheckingAccount(id={self.id}, account_number={self.account_number}, balance={self.balance}'

@@ -1,8 +1,9 @@
 from enum import Enum as PyEnum
 
-from models.base_mdl import BaseMdl
 from sqlalchemy import Column, Integer, String, ForeignKey, Enum, DateTime, Numeric, Boolean
 from sqlalchemy.orm import relationship
+
+from models.base_mdl import BaseMdl
 
 
 class TransactionCategory(PyEnum):

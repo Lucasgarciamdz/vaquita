@@ -1,7 +1,8 @@
-from services.user_svc import UserSvc
 from textual import on
 from textual.screen import Screen
 from textual.widgets import Button, Input, Static
+
+from services.user_svc import UserSvc
 
 user_svc = UserSvc()
 

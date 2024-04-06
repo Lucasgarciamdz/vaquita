@@ -1,10 +1,10 @@
 import multiprocessing
-from statistics import StatisticsSvc, StatisticsRepo
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from models import Base
+from statistics import StatisticsSvc, StatisticsRepo
 
 
 def statistics_process(queue, event):

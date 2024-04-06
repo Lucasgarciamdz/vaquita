@@ -4,6 +4,7 @@ from services.checking_account_svc import CheckingAccountSvc
 
 checking_account_service = CheckingAccountSvc()
 
+
 class UserSvc():
 
     def __init__(self):

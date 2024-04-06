@@ -1,6 +1,7 @@
-from config.logger_config import setup_custom_logger
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import scoped_session
+
+from config.logger_config import setup_custom_logger
 
 
 class BaseRepo:

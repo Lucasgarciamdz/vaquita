@@ -30,7 +30,7 @@ class CheckingAccountSvc:
                 random.choice(string.ascii_uppercase + string.digits) for _ in range(5))
             new_account.set_password(password)
         new_account.balance = balance
-        new_account.users = new_account.users.append(user)
+        new_account.users = [user]
         self.checking_account_repo.add(new_account)
 
     def join_account(self, account_number, user, account_password):

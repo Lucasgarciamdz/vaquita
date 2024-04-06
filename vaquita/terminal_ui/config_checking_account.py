@@ -1,8 +1,9 @@
-from services.checking_account_svc import CheckingAccountSvc
-from services.user_svc import UserSvc
 from textual import on
 from textual.screen import Screen
 from textual.widgets import Button, Input, Static
+
+from services.checking_account_svc import CheckingAccountSvc
+from services.user_svc import UserSvc
 
 account_service = CheckingAccountSvc()
 user_service = UserSvc()
@@ -43,7 +44,7 @@ class ConfigCheckingAccountScreen(Screen):
 
         def check_bank_created(created):
             if created:
-                self.app.pop_screen()
+                self.dismiss(self.user_id)
             else:
                 self.mount(Static("Error creating bank"))
 
