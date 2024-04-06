@@ -1,6 +1,8 @@
 from models.user_mdl import UserMdl
 from repositories.user_repo import UserRepo
+from services.checking_account_svc import CheckingAccountSvc
 
+checking_account_service = CheckingAccountSvc()
 
 class UserSvc():
 
@@ -33,3 +35,11 @@ class UserSvc():
     def get_user_accounts(self, user_id):
         user = self.user_repo.get(user_id)
         return user.checking_accounts
+
+    def create_personal_bank(self, bank_name, bank_balance, user_id, password, personal=True):
+        user = self.user_repo.get(user_id)
+        checking_account_service.create_account(bank_name, bank_balance, user, password, personal)
+
+    def join_vaquita(self, user_id, vaquita_number, password):
+        user = self.user_repo.get(user_id)
+        checking_account_service.join_account(vaquita_number, user, password)

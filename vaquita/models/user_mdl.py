@@ -1,7 +1,10 @@
-from models.base_mdl import BaseMdl
-from sqlalchemy import Column, Integer, String
+from models.base_mdl import BaseMdl, user_account_association
+from sqlalchemy import Column, Integer, String, ForeignKey
 from sqlalchemy.orm import relationship
 from werkzeug.security import generate_password_hash, check_password_hash
+
+
+from sqlalchemy import Table, MetaData
 
 
 class UserMdl(BaseMdl):
@@ -14,7 +17,7 @@ class UserMdl(BaseMdl):
     email = Column(String(120), unique=True, nullable=False)
     password_hash = Column(String(256))
 
-    checking_accounts = relationship('CheckingAccountMdl', back_populates='user')
+    checking_accounts = relationship('CheckingAccountMdl', secondary=user_account_association, back_populates='users')
     transactions = relationship('TransactionMdl', back_populates='user')
 
     def set_password(self, password):

@@ -1,7 +1,7 @@
 from services.user_svc import UserSvc
 from textual import on
 from textual.screen import Screen
-from textual.widgets import Button, Input, Label, Static
+from textual.widgets import Button, Input, Static
 
 user_svc = UserSvc()
 
@@ -18,7 +18,7 @@ class RegisterForm(Screen):
 
         try:
             user_id = user_svc.register(name, email, password)
-            self.mount(Static(user_id))
+            self.dismiss(user_id)
         except Exception as e:
             self.mount(Static(str(e)))
 

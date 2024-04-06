@@ -1,50 +1,88 @@
-from services.checking_account_svc import CheckingAccountSvc
+from services.user_svc import UserSvc
 from textual import on
-from textual.containers import ScrollableContainer
+from textual.app import ComposeResult
 from textual.screen import Screen
-from textual.app import App
-from textual.widgets import Button, Input, Label
-from textual.reactive import reactive
+from textual.widget import Widget
+from textual.widgets import Button, Input, Label, Static, Tab, Tabs
+
+user_svc = UserSvc()
 
 
-account_service = CheckingAccountSvc()
+class CheckingAcoountTabs(Widget):
 
-
-class TransactionList(ScrollableContainer):
-    CSS_PATH = "./css/account.css"
+    def __init__(self, checking_account_list: list):
+        super().__init__()
+        self.checking_account_list = checking_account_list
 
     def compose(self):
-        transactions = account_service.get_transactions("account_name")
-        for transaction in transactions:
-            yield Label(f"[cyan]{transaction}[/cyan]")
+
+        tabs = Tabs()
+        if self.checking_account_list:
+            for account in self.checking_account_list:
+                tab = Tab(label=account.name, id=account.id)
+                tabs.add_tab(tab)
+        else:
+            tabs.add_tab(Static("No accounts found"))
+
+        yield tabs
 
 
-class AddTransactionForm(Screen):
-    CSS_PATH = "./css/account.css"
+class CheckingAccountTransactions(Widget):
 
-    @on(Button.Pressed, "#add_transaction_btn")
-    def add_transaction(self):
+    def __init__(self, transaction_list: list):
+        super().__init__()
+        self.transactions = transaction_list
+
+    def compose(self):
+        if self.transactions:
+            for transaction in self.transactions:
+                yield Static(transaction['date'] + " " + transaction['description'] + " " + transaction['amount'])
+        else:
+            yield Static("No transactions found")
+
+
+class AddTransactionScreen(Screen):
+
+    def __init__(self, user_id: int):
+        super().__init__()
+        self.user_id = user_id
+
+    def on_mount(self, user_id):
+        self.user_id = user_id
+
+    @on(Button.Pressed, "Submit")
+    def add_transaction(self, event):
         form_data = self.query(Input)
-        transaction = form_data[0]
+        amount = form_data[0].value
+        description = form_data[1].value
+        user_svc.add_transaction(self.user_id, amount, description)
+        self.app.pop_screen()
 
-        try:
-            account_service.add_transaction("account_name", transaction)
-            self.dismiss(True)
-        except Exception as e:
-            self.mount(Label(str(e)))
-
-    def compose(self):
-        yield Input(placeholder="Transaction")
-        yield Button("Add Transaction", id="add_transaction_btn")
+    def compose(self) -> ComposeResult:
+        yield Label("Add transaction")
+        yield Input("Amount", id="Amount")
+        yield Input("Description", id="Description")
+        yield Button("Submit", id="Submit")
 
 
-class AccountScreen(App):
-    CSS_PATH = "./css/account.css"
+class CheckingAccountScreen(Screen):
 
-    user_id = reactive(None)
+    def __init__(self, user_id: int):
+        super().__init__()
+        self.user_id = user_id
 
-    def compose(self):
-        balance = account_service.get_balance("account_name")
-        yield Label(f"[blue]Balance for account_name: {10}[/blue]")
-        yield TransactionList()
-        yield AddTransactionForm()
+    def on_mount(self, user_id):
+        self.user_id = user_id
+        self.user_checking_accounts = user_svc.get_user_accounts(self.user_id)
+        self.transactions_list = self.user_checking_accounts[0].get_transactions()
+
+    @on(Button.Pressed, "Add_transaction")
+    def add_transaction(self, event):
+        self.app.push_screen(AddTransactionScreen(self.user_id))
+
+    def compose(self) -> ComposeResult:
+        yield CheckingAcoountTabs(self.user_id)
+        yield Static("Account number: " + str(self.user_checking_accounts[0].account_number))
+        yield Static("Balance: " + str(user_svc.get_user_balance(self.user_id)))
+        yield CheckingAccountTransactions(self.user_id)
+        yield Button("Add transaction", id="Add_transaction")

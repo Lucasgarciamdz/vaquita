@@ -6,10 +6,15 @@ from typing import Optional
 from config.logger_config import setup_custom_logger
 from dotenv import load_dotenv
 from models.base_mdl import BaseMdl
+from models.bank.checking_account_mdl import CheckingAccountMdl
+from models.bank.transaction_mdl import TransactionMdl
+from models.user_mdl import UserMdl
+from models.base_mdl import user_account_association
+from models import *
+from sqlalchemy import DDL
 from sqlalchemy import create_engine, exc, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import scoped_session, sessionmaker
-from sqlalchemy import DDL
 
 # Get the absolute path of the directory where the script is located
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -63,10 +68,6 @@ class DatabaseManager:  # noqa: WPS306
     def create_database(self) -> None:
         """Create all tables in the database."""
         LOG.info('Creating database...')
-        from models.base_mdl import BaseMdl
-        from models.bank.transaction_mdl import TransactionMdl
-        from models.bank.checking_account_mdl import CheckingAccountMdl
-        from models.user_mdl import UserMdl
         BaseMdl.metadata.create_all(self.engine)
 
     def delete_database(self) -> None:
