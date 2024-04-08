@@ -1,0 +1,33 @@
+/* Center the form */
+AddTransactionForm, TransactionList, AccountScreen {
+    align: center middle;
+    width: 75%;
+    margin: 1;
+    padding: 1;
+    box-sizing: border-box;
+}
+
+/* Add some margin to the inputs */
+Input {
+    margin: 1;
+    width: 50%;
+    color: white;
+}
+
+/* Style the buttons */
+Button {
+    background: #4CAF50; /* Green */
+    border: none;
+    color: white;
+    padding: 1;
+    text-align: center;
+    margin: 1;
+    width: 50%;
+}
+
+/* Style the labels */
+Label {
+    margin: 1;
+    width: 100%;
+    color: white;
+}
