@@ -24,17 +24,15 @@ class VaquitaApp(App):
     user_id = None
 
     def on_mount(self):
-        db.delete_database()
-        db.create_database()
 
         def display_main_account(user_id):
             self.push_screen(CheckingAccountScreen(user_id))
 
         def display_main_menu(user_id):
-            self.push_screen(ConfigCheckingAccountScreen(user_id), display_main_account)
-            # if user_service.get_user_accounts(user_id):
-            # else:
-            #     self.push_screen(AccountScreen(user_id))
+            if user_service.get_user_accounts(user_id):
+                self.push_screen(CheckingAccountScreen(user_id))
+            else:
+                self.push_screen(ConfigCheckingAccountScreen(user_id), display_main_account)
 
         def check_form(form):
             if form == 'register':

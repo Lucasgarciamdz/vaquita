@@ -43,4 +43,4 @@ class UserSvc():
 
     def join_vaquita(self, user_id, vaquita_number, password):
         user = self.user_repo.get(user_id)
-        checking_account_service.join_account(vaquita_number, user, password)
+        return checking_account_service.join_account(vaquita_number, user, password)

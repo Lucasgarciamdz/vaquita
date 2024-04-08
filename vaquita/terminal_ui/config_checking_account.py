@@ -32,6 +32,54 @@ class CreateBankScreen(Screen):
         yield Button("Create Personal Bank", variant="primary", id="create_bank")
 
 
+class CreateVaquitaScreen(Screen):
+
+    def __init__(self, user_id):
+        super().__init__(
+        )
+        self.user_id = user_id
+
+    @on(Button.Pressed, "#create_vaquita")
+    def create_vaquita(self):
+        form_data = self.query(Input)
+        bank_name = form_data[0].value
+        bank_balance = form_data[1].value
+        password = form_data[2].value
+
+        user_service.create_personal_bank(
+            bank_name, bank_balance, self.user_id, password, personal=False
+        )
+        self.dismiss(True)
+
+    def compose(self):
+        yield Input(placeholder="Bank Name", id="bank_name")
+        yield Input(placeholder="Initial Balance", id="bank_balance")
+        yield Input(placeholder="Password", id="password", password=True)
+        yield Button("Create Vaquita", variant="primary", id="create_vaquita")
+
+
+class JoinVaquitaScreen(Screen):
+
+    def __init__(self, user_id):
+        super().__init__()
+        self.user_id = user_id
+
+    @on(Button.Pressed, "#join_vaquita")
+    def join_vaquita(self):
+        form_data = self.query(Input)
+        account_number = form_data[0].value
+        password = form_data[1].value
+
+        if user_service.join_vaquita(self.user_id, account_number, password):
+            self.dismiss(True)
+        else:
+            self.mount(Static("Error joining vaquita"))
+
+    def compose(self):
+        yield Input(placeholder="Account number", id="account_number")
+        yield Input(placeholder="Password", id="password", password=True)
+        yield Button("Join Vaquita", variant="primary", id="join_vaquita")
+
 class ConfigCheckingAccountScreen(Screen):
     CSS_PATH = "./css/config_checking_account.css"
 
@@ -50,12 +98,26 @@ class ConfigCheckingAccountScreen(Screen):
 
         self.app.push_screen(CreateBankScreen(self.user_id), check_bank_created)
 
+    @on(Button.Pressed, "#create_vaquita")
+    def show_create_vaquita(self):
+
+        def check_vaquita_created(created):
+            if created:
+                self.dismiss(self.user_id)
+            else:
+                self.mount(Static("Error creating vaquita"))
+
+        self.app.push_screen(CreateVaquitaScreen(self.user_id), check_vaquita_created)
+
     @on(Button.Pressed, "#join_vaquita")
     def show_join_vaquita(self):
-        vaquita_number = self.query_one(Input).value
+        def check_vaquita_joined(created):
+            if created:
+                self.dismiss(self.user_id)
+            else:
+                self.mount(Static("Error creating vaquita"))
 
-        account_service.join_account(vaquita_number, self.user_id)
-        self.dismiss("join_vaquita")
+        self.app.push_screen(JoinVaquitaScreen(self.user_id), check_vaquita_joined)
 
     def compose(self):
         yield Static(
