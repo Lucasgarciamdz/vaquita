@@ -30,7 +30,7 @@ class VaquitaApp(App):
 
         def display_main_menu(user_id):
             if user_service.get_user_accounts(user_id):
-                self.push_screen(CheckingAccountScreen(user_id))
+                self.push_screen(CheckingAccountScreen(user_id)
             else:
                 self.push_screen(ConfigCheckingAccountScreen(user_id), display_main_account)
 
