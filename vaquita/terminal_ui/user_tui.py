@@ -2,10 +2,7 @@ from textual import on
 from textual.screen import Screen
 from textual.widgets import Button, Input, Static
 
-from services.user_svc import UserSvc
-
-user_svc = UserSvc()
-
+import requests
 
 class RegisterForm(Screen):
     CSS_PATH = "./css/user.css"
@@ -18,7 +15,9 @@ class RegisterForm(Screen):
         password = form_data[2].value
 
         try:
-            user_id = user_svc.register(name, email, password)
+            response = requests.post('http://localhost:8000/users/register', json={'name': name, 'email': email, 'password': password})
+            response.raise_for_status()
+            user_id = response.json()['user_id']
             self.dismiss(user_id)
         except Exception as e:
             self.mount(Static(str(e)))
@@ -28,7 +27,6 @@ class RegisterForm(Screen):
         yield Input(placeholder="Email")
         yield Input(password=True, placeholder="Password")
         yield Button("Register", id="register_btn")
-
 
 class LoginForm(Screen):
     CSS_PATH = "./css/user.css"
@@ -40,7 +38,9 @@ class LoginForm(Screen):
         password = form_data[1].value
 
         try:
-            user_id = user_svc.login(email, password)
+            response = requests.post('http://localhost:8000/users/login', json={'email': email, 'password': password})
+            response.raise_for_status()
+            user_id = response.json()['user_id']
             self.dismiss(user_id)
         except Exception as e:
             self.mount(Static(str(e)))
