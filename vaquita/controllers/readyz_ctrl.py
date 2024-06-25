@@ -29,8 +29,5 @@ class ReadyzController:
             LOG.error('Database connection failed')
 
     def send_response(self, handler, status_code, body=b''):
-        handler.send_response(status_code)
-        handler.send_header('Content-Length', str(len(body)))
-        handler.end_headers()
         if body:
             handler.wfile.write(body)

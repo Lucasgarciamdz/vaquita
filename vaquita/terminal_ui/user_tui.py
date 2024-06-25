@@ -53,8 +53,10 @@ class LoginForm(Screen):
         email = form_data[0].value
         password = form_data[1].value
 
+        print("hello world")
         try:
             response_dict = self.socket_client.send_request_and_get_response('/users/login', 'POST', {'email': email, 'password': password})
+            print(f"Response dict: {response_dict}")
             if response_dict:
                 user_id = response_dict['user_id']
                 if isinstance(user_id, int):

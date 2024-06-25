@@ -1,4 +1,5 @@
 import socketserver
+import json
 from controllers.readyz_ctrl import ReadyzController
 from controllers.user_ctrl import UserController
 
@@ -25,53 +26,50 @@ class MainServer(socketserver.StreamRequestHandler):
         return None
 
     def handle(self):
+        try:
+            request_line = self.rfile.readline().decode().strip()
+            if not request_line:
+                return
+
+            method, path, version = request_line.split(' ')
+            self.path = path
+
+            headers = self.read_headers()
+            self.headers = headers
+
+            content_length = int(headers.get('Content-Length', 0))
+            body = self.rfile.read(content_length).decode() if content_length else ''
+            self.body = body
+
+            controller = self.find_controller(path)
+
+            if controller:
+                if method == 'GET':
+                    controller.do_GET(self)
+                elif method == 'POST':
+                    controller.do_POST(self)
+            else:
+                self.send_response(404, 'Not Found')
+                self.end_headers()
+
+            if headers.get("Connection", "").lower() == "close":
+                self.finish()
+        except Exception as e:
+            self.send_response(500, f'Internal Server Error: {e}')
+            self.end_headers()
+
+    def read_headers(self):
+        headers = {}
         while True:
-            try:
-                # Read the request line
-                request_line = self.rfile.readline().decode().strip()
-                if not request_line:
-                    break  # No more data from the client
+            header_line = self.rfile.readline().decode().strip()
+            if header_line == '':
+                break
+            key, value = header_line.split(': ', 1)
+            headers[key] = value
+        return headers
 
-                method, path, version = request_line.split(' ')
-
-                # Read headers
-                headers = {}
-                while True:
-                    header_line = self.rfile.readline().decode().strip()
-                    if header_line == '':
-                        break
-                    key, value = header_line.split(': ', 1)
-                    headers[key] = value
-                self.headers = headers
-
-                # Read the body, if any
-                content_length = int(headers.get('Content-Length', 0))
-                body = self.rfile.read(content_length).decode() if content_length else ''
-                print(f"Received body:\n{body}")  # Debug statement
-                self.body = body
-
-                # Find the appropriate controller
-                controller = self.find_controller(path)
-                self.path = path
-
-                # Handle the request
-                if controller:
-                    if method == 'GET':
-                        controller.do_GET(self)
-                    elif method == 'POST':
-                        controller.do_POST(self)
-                else:
-                    self.send_response(404)
-                    self.end_headers()
-
-                # Check if the connection should be closed
-                if headers.get("Connection", "").lower() == "close":
-                    break
-            except Exception as e:
-                print(f"Exception during request handling: {e}")
-
-    def send_response(self, status_code):
-        self.wfile.write(f"HTTP/1.1 {status_code} {'OK' if status_code == 200 else 'Not Found'}\r\n".encode())
+    def send_response(self, status_code, message):
+        self.wfile.write(f"HTTP/1.1 {status_code} {message}\r\n".encode())
 
     def send_header(self, key, value):
         self.wfile.write(f"{key}: {value}\r\n".encode())
