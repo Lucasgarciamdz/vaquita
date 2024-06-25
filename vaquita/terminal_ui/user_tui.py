@@ -6,7 +6,7 @@ from textual.widgets import Button, Input, Static
 
 
 from http.client import HTTPConnection
-from http_client import HttpClient
+from socket_client import SocketClient
 
 
 class RegisterForm(Screen):
@@ -14,7 +14,7 @@ class RegisterForm(Screen):
 
     def __init__(self):
         super().__init__()
-        self.http_client = HttpClient('localhost', 8080)
+        self.socket_client = SocketClient()
 
     @on(Button.Pressed, "#register_btn")
     def return_to_main(self):
@@ -24,7 +24,7 @@ class RegisterForm(Screen):
         password = form_data[2].value
 
         try:
-            response_dict = self.http_client.send_request_and_get_response('/users/register', 'POST', {'name': name, 'email': email, 'password': password})
+            response_dict = self.socket_client.send_request_and_get_response('/users/register', 'POST', {'name': name, 'email': email, 'password': password})
             if response_dict:
                 user_id = response_dict['user_id']
                 self.dismiss(user_id)
@@ -45,7 +45,7 @@ class LoginForm(Screen):
 
     def __init__(self):
         super().__init__()
-        self.http_client = HttpClient('localhost', 8080)
+        self.socket_client = SocketClient()
 
     @on(Button.Pressed, "#login_btn")
     def return_to_main(self):
@@ -54,7 +54,7 @@ class LoginForm(Screen):
         password = form_data[1].value
 
         try:
-            response_dict = self.http_client.send_request_and_get_response('/users/login', 'POST', {'email': email, 'password': password})
+            response_dict = self.socket_client.send_request_and_get_response('/users/login', 'POST', {'email': email, 'password': password})
             if response_dict:
                 user_id = response_dict['user_id']
                 if isinstance(user_id, int):

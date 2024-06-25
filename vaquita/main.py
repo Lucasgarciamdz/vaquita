@@ -1,5 +1,4 @@
 import json
-
 from textual.app import App, ComposeResult
 from textual.widgets import Header, Footer, Static
 
@@ -10,8 +9,7 @@ from terminal_ui.checking_account_tui import CheckingAccountScreen
 from terminal_ui.config_checking_account import ConfigCheckingAccountScreen
 from terminal_ui.user_tui import RegisterForm, LoginForm
 from terminal_ui.welcoming_tui import WelcomingScreen
-import http.client
-from http_client import HttpClient
+from socket_client import SocketClient
 
 db = DatabaseManager()
 
@@ -22,19 +20,16 @@ user_service = UserSvc()
 STATUS = ""
 MESSAGE = ""
 
+
 class VaquitaApp(App):
     """
     VaquitaApp is a textual app that displays a custom welcome message when started.
     """
 
-    client = HttpClient()
+    client = SocketClient()
     user_id = None
 
     def on_mount(self):
-        # self.client.send('/readyz')
-        # STATUS, MESSAGE = self.client.receive()
-        #
-        # print(f"Readyz check: {STATUS} - {MESSAGE}")
 
         def display_main_account(user_id):
             self.push_screen(CheckingAccountScreen(user_id))
@@ -57,7 +52,6 @@ class VaquitaApp(App):
     def compose(self) -> ComposeResult:
         yield Header()
         yield Static("Welcome to Vaquita!")
-
         yield Static(f"Readyz check: {STATUS} - {MESSAGE}")
         yield Footer()
 

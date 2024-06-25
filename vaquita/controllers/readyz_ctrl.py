@@ -1,7 +1,4 @@
-"""This module contains a simple readiness controller that checks the database connection."""
-
 from logging import Logger
-
 from config.logger_config import setup_custom_logger
 from database.database_manager import DatabaseManager
 
@@ -13,24 +10,27 @@ LOG: Logger = setup_custom_logger(__name__)
 
 
 class ReadyzController:
+
     def do_GET(self, handler):
         LOG.info('Readyz controller')
         if handler.path == '/readyz':
             self.handle_readyz(handler)
         else:
-            handler.send_response(PATH_NOT_FOUND_STATUS)
-            handler.end_headers()
+            self.send_response(handler, PATH_NOT_FOUND_STATUS)
 
     def handle_readyz(self, handler):
         LOG.info('Checking database connection...')
         db_manager = DatabaseManager()
         if db_manager.check_connection():
-            handler.send_response(READYZ_OK_STATUS)
-            handler.end_headers()
-            handler.wfile.write(b'OK')
+            self.send_response(handler, READYZ_OK_STATUS, b'OK')
             LOG.debug('Database connection successful')
         else:
-            handler.send_response(READYZ_FAIL_STATUS)
-            handler.end_headers()
-            handler.wfile.write(b'Database connection failed')
+            self.send_response(handler, READYZ_FAIL_STATUS, b'Database connection failed')
             LOG.error('Database connection failed')
+
+    def send_response(self, handler, status_code, body=b''):
+        handler.send_response(status_code)
+        handler.send_header('Content-Length', str(len(body)))
+        handler.end_headers()
+        if body:
+            handler.wfile.write(body)
