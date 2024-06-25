@@ -3,11 +3,11 @@ from textual.app import ComposeResult
 from textual.reactive import reactive
 from textual.screen import Screen
 from textual.widget import Widget
-from textual.widgets import Button, Input, Label, Static, Tab, Tabs, Select
+from textual.widgets import Button, Input, Static, Tab, Tabs, Select
 
+from models.bank.transaction_mdl import TransactionType, TransactionCategory
 from services.checking_account_svc import CheckingAccountSvc
 from services.user_svc import UserSvc
-from models.bank.transaction_mdl import TransactionType, TransactionCategory
 
 user_svc = UserSvc()
 checking_account_svc = CheckingAccountSvc()
@@ -32,7 +32,6 @@ class CheckingAcoountTabs(Widget):
 
 
 class CheckingAccountTransactions(Widget):
-
     transactions_list = reactive([], recompose=True)
 
     def __init__(self, transaction_list_initial):
@@ -41,7 +40,8 @@ class CheckingAccountTransactions(Widget):
 
     def compose(self):
         for transaction in self.transactions_list_initial:
-            yield Static(str(str(transaction.date) + " " + str(transaction.description) + " " + str(transaction.amount)))
+            yield Static(
+                str(str(transaction.date) + " " + str(transaction.description) + " " + str(transaction.amount)))
 
 
 class AddTransactionScreen(Screen):
@@ -87,7 +87,6 @@ class AddTransactionScreen(Screen):
 
 
 class CheckingAccountScreen(Screen):
-
     refresh_transactions = reactive(False, recompose=True)
 
     def __init__(self, user_id: int):

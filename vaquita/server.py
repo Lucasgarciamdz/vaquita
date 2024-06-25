@@ -1,48 +1,47 @@
-import socket
-import threading
+from http.server import HTTPServer, BaseHTTPRequestHandler
+from socketserver import ThreadingMixIn
+
+from controllers.readyz_ctrl import ReadyzController
+from controllers.user_ctrl import UserController
 
 
-class ServerSvc:
-    def __init__(self, host='::', port=12345):
-        self.host = host
-        self.port = port
-        self.server_socket = None
+class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
+    """Handle requests in a separate thread."""
 
-    def start_server(self):
-        self.server_socket = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
-        self.server_socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 0)
-        self.server_socket.bind((self.host, self.port))
-        self.server_socket.listen()
 
-    def handle_client(self, client_socket, client_address):
-        while True:
-            # Recibir el comando del cliente
-            command = client_socket.recv(1024).decode()
+class MainServer(BaseHTTPRequestHandler):
+    def __init__(self, *args, **kwargs):
+        self.controllers = {
+            '/readyz': ReadyzController(),
+            '/users': UserController(),
+        }
+        super().__init__(*args, **kwargs)
 
-            # Si el cliente envía el comando 'quit', terminar la conexión
-            if command.lower() == 'quit':
-                break
+    def find_controller(self, path):
+        for prefix, controller in self.controllers.items():
+            if path.startswith(prefix):
+                return controller
+        return None
 
-            # Aquí es donde manejarías los otros comandos
-            # Por ejemplo, podrías tener comandos para depositar, retirar, etc.
-            # Para cada comando, realizarías la operación correspondiente en la cuenta del usuario
-            # y luego enviarías una respuesta al cliente
+    def do_GET(self):
+        controller = self.find_controller(self.path)
+        if controller:
+            controller.do_GET(self)
+        else:
+            self.send_response(404)
+            self.end_headers()
 
-            # Por ejemplo, aquí hay un esqueleto de cómo podrías manejar un comando de depósito:
-            if command.startswith('deposit'):
-                _, account_name, amount = command.split()
-                amount = int(amount)
+    def do_POST(self):
+        controller = self.find_controller(self.path)
+        if controller:
+            controller.do_POST(self)
+        else:
+            self.send_response(404)
+            self.end_headers()
 
-                # Aquí es donde depositarías el monto en la cuenta
-                # Por ejemplo, podrías hacer algo como esto:
-                # self.account_repository.get_account(account_name).deposit(amount)
 
-                # Luego enviarías una respuesta al cliente para confirmar que el depósito fue exitoso
-                response = f'Deposited {amount} into {account_name}'
-                client_socket.sendall(response.encode())
-
-    def accept_connections(self):
-        while True:
-            client_socket, client_address = self.server_socket.accept()
-            client_thread = threading.Thread(target=self.handle_client, args=(client_socket, client_address))
-            client_thread.start()
+if __name__ == "__main__":
+    HOST, PORT = 'localhost', 8080
+    print(f"Server started on {HOST}:{PORT}")
+    server = ThreadedHTTPServer((HOST, PORT), MainServer)
+    server.serve_forever()

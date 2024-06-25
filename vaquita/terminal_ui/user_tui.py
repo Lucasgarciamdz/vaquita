@@ -1,11 +1,20 @@
+import json
+
 from textual import on
 from textual.screen import Screen
 from textual.widgets import Button, Input, Static
 
-import requests
+
+from http.client import HTTPConnection
+from http_client import HttpClient
+
 
 class RegisterForm(Screen):
     CSS_PATH = "./css/user.css"
+
+    def __init__(self):
+        super().__init__()
+        self.http_client = HttpClient('localhost', 8080)
 
     @on(Button.Pressed, "#register_btn")
     def return_to_main(self):
@@ -15,10 +24,12 @@ class RegisterForm(Screen):
         password = form_data[2].value
 
         try:
-            response = requests.post('http://localhost:8000/users/register', json={'name': name, 'email': email, 'password': password})
-            response.raise_for_status()
-            user_id = response.json()['user_id']
-            self.dismiss(user_id)
+            response_dict = self.http_client.send_request_and_get_response('/users/register', 'POST', {'name': name, 'email': email, 'password': password})
+            if response_dict:
+                user_id = response_dict['user_id']
+                self.dismiss(user_id)
+            else:
+                raise Exception('No response received from the server')
         except Exception as e:
             self.mount(Static(str(e)))
 
@@ -28,8 +39,13 @@ class RegisterForm(Screen):
         yield Input(password=True, placeholder="Password")
         yield Button("Register", id="register_btn")
 
+
 class LoginForm(Screen):
     CSS_PATH = "./css/user.css"
+
+    def __init__(self):
+        super().__init__()
+        self.http_client = HttpClient('localhost', 8080)
 
     @on(Button.Pressed, "#login_btn")
     def return_to_main(self):
@@ -38,10 +54,17 @@ class LoginForm(Screen):
         password = form_data[1].value
 
         try:
-            response = requests.post('http://localhost:8000/users/login', json={'email': email, 'password': password})
-            response.raise_for_status()
-            user_id = response.json()['user_id']
-            self.dismiss(user_id)
+            response_dict = self.http_client.send_request_and_get_response('/users/login', 'POST', {'email': email, 'password': password})
+            if response_dict:
+                user_id = response_dict['user_id']
+                if isinstance(user_id, int):
+                    self.dismiss(user_id)
+                elif user_id == "false":
+                    raise Exception('Incorrect user')
+                else:
+                    raise Exception('Unexpected user_id value received from the server')
+            else:
+                raise Exception('No response received from the server')
         except Exception as e:
             self.mount(Static(str(e)))
 

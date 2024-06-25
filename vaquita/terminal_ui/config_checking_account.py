@@ -2,6 +2,7 @@ from textual import on
 from textual.screen import Screen
 from textual.widgets import Button, Input, Static
 
+from http_client import HttpClient
 from services.checking_account_svc import CheckingAccountSvc
 from services.user_svc import UserSvc
 
@@ -14,6 +15,7 @@ class CreateBankScreen(Screen):
     def __init__(self, user_id: int):
         super().__init__()
         self.user_id = user_id
+        self.http_client = HttpClient('localhost', 8000)
 
     @on(Button.Pressed, "#create_bank")
     def create_bank(self):
@@ -21,10 +23,12 @@ class CreateBankScreen(Screen):
         bank_name = form_data[0].value
         bank_balance = form_data[1].value
 
-        user_service.create_personal_bank(
-            bank_name, bank_balance, self.user_id, "password", personal=True
-        )
-        self.dismiss(True)
+        try:
+            self.http_client.send('/create_personal_bank', 'POST', {'bank_name': bank_name, 'bank_balance': bank_balance, 'user_id': self.user_id, 'password': 'password', 'personal': True})
+            status, response_body = self.http_client.receive()
+            self.dismiss(True)
+        except Exception as e:
+            self.mount(Static(str(e)))
 
     def compose(self):
         yield Input(placeholder="Bank Name", id="bank_name")
@@ -35,9 +39,9 @@ class CreateBankScreen(Screen):
 class CreateVaquitaScreen(Screen):
 
     def __init__(self, user_id):
-        super().__init__(
-        )
+        super().__init__()
         self.user_id = user_id
+        self.http_client = HttpClient('localhost', 8000)
 
     @on(Button.Pressed, "#create_vaquita")
     def create_vaquita(self):
@@ -46,10 +50,14 @@ class CreateVaquitaScreen(Screen):
         bank_balance = form_data[1].value
         password = form_data[2].value
 
-        user_service.create_personal_bank(
-            bank_name, bank_balance, self.user_id, password, personal=False
-        )
-        self.dismiss(True)
+        # try:
+        response_dict = self.http_client.send_request_and_get_response('/users/create_vaquita', 'POST', {'bank_name': bank_name, 'bank_balance': bank_balance, 'user_id': self.user_id, 'password': password, 'personal': False})
+        if response_dict:
+            self.dismiss(True)
+        else:
+            raise Exception('No response received from the server')
+        # except Exception as e:
+        #     self.mount(Static(str(e)))
 
     def compose(self):
         yield Input(placeholder="Bank Name", id="bank_name")
@@ -63,6 +71,7 @@ class JoinVaquitaScreen(Screen):
     def __init__(self, user_id):
         super().__init__()
         self.user_id = user_id
+        self.http_client = HttpClient()
 
     @on(Button.Pressed, "#join_vaquita")
     def join_vaquita(self):
@@ -70,7 +79,8 @@ class JoinVaquitaScreen(Screen):
         account_number = form_data[0].value
         password = form_data[1].value
 
-        if user_service.join_vaquita(self.user_id, account_number, password):
+        response_dict = self.http_client.send_request_and_get_response('/users/join_vaquita', 'POST', {'user_id': self.user_id, 'vaquita_number': account_number, 'password': password})
+        if response_dict and response_dict['result']:
             self.dismiss(True)
         else:
             self.mount(Static("Error joining vaquita"))
@@ -79,6 +89,7 @@ class JoinVaquitaScreen(Screen):
         yield Input(placeholder="Account number", id="account_number")
         yield Input(placeholder="Password", id="password", password=True)
         yield Button("Join Vaquita", variant="primary", id="join_vaquita")
+
 
 class ConfigCheckingAccountScreen(Screen):
     CSS_PATH = "./css/config_checking_account.css"

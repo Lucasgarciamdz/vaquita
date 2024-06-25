@@ -1,3 +1,5 @@
+import json
+
 from textual.app import App, ComposeResult
 from textual.widgets import Header, Footer, Static
 
@@ -8,6 +10,8 @@ from terminal_ui.checking_account_tui import CheckingAccountScreen
 from terminal_ui.config_checking_account import ConfigCheckingAccountScreen
 from terminal_ui.user_tui import RegisterForm, LoginForm
 from terminal_ui.welcoming_tui import WelcomingScreen
+import http.client
+from http_client import HttpClient
 
 db = DatabaseManager()
 
@@ -15,22 +19,30 @@ checking_account_service = CheckingAccountSvc()
 
 user_service = UserSvc()
 
+STATUS = ""
+MESSAGE = ""
 
 class VaquitaApp(App):
     """
     VaquitaApp is a textual app that displays a custom welcome message when started.
     """
 
+    client = HttpClient()
     user_id = None
 
     def on_mount(self):
+        # self.client.send('/readyz')
+        # STATUS, MESSAGE = self.client.receive()
+        #
+        # print(f"Readyz check: {STATUS} - {MESSAGE}")
 
         def display_main_account(user_id):
             self.push_screen(CheckingAccountScreen(user_id))
 
         def display_main_menu(user_id):
-            if user_service.get_user_accounts(user_id):
-                self.push_screen(CheckingAccountScreen(user_id)
+            response_dict = self.client.send_request_and_get_response('/users/accounts/' + str(user_id))
+            if response_dict:
+                self.push_screen(CheckingAccountScreen(user_id))
             else:
                 self.push_screen(ConfigCheckingAccountScreen(user_id), display_main_account)
 
@@ -46,6 +58,7 @@ class VaquitaApp(App):
         yield Header()
         yield Static("Welcome to Vaquita!")
 
+        yield Static(f"Readyz check: {STATUS} - {MESSAGE}")
         yield Footer()
 
 

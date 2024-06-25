@@ -12,7 +12,7 @@ LOG = setup_custom_logger(__name__)
 
 
 class ClientApp(App):
-    def __init__(self, host='localhost', port=12345):
+    def __init__(self, host='localhost', port=8080):
         super().__init__()
         self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.client_socket.connect((host, port))

@@ -1,12 +1,11 @@
 import random
 import string
+from datetime import datetime
 
 from models.bank.checking_account_mdl import CheckingAccountMdl
+from models.bank.transaction_mdl import TransactionMdl, TransactionType, TransactionCategory
 from repositories.checking_account_repo import CheckingAccountRepo
 from repositories.transaction_repo import TransactionRepo
-
-from models.bank.transaction_mdl import TransactionMdl, TransactionType, TransactionCategory
-from datetime import datetime
 
 
 class CheckingAccountSvc:
