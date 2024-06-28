@@ -2,13 +2,19 @@ import socketserver
 import json
 from controllers.readyz_ctrl import ReadyzController
 from controllers.user_ctrl import UserController
+import logging
 
 
 class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
     allow_reuse_address = True
 
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
 
 class MainServer(socketserver.StreamRequestHandler):
+    connected_clients = 0
+    client_ips = set()
+
     def __init__(self, *args, **kwargs):
         self.path = None
         self.headers = None
@@ -18,6 +24,10 @@ class MainServer(socketserver.StreamRequestHandler):
             '/users': UserController(),
         }
         super().__init__(*args, **kwargs)
+        client_ip = self.client_address[0]
+        MainServer.connected_clients += 1
+        MainServer.client_ips.add(client_ip)
+        logging.info(f"Client connected: {client_ip}. Total connected clients: {MainServer.connected_clients}")
 
     def find_controller(self, path):
         for prefix, controller in self.controllers.items():
@@ -33,6 +43,7 @@ class MainServer(socketserver.StreamRequestHandler):
 
             method, path, version = request_line.split(' ')
             self.path = path
+            logging.info(f"Incoming request: {method} {path} from {self.client_address[0]}")
 
             headers = self.read_headers()
             self.headers = headers
@@ -52,11 +63,19 @@ class MainServer(socketserver.StreamRequestHandler):
                 self.send_response(404, 'Not Found')
                 self.end_headers()
 
-            if headers.get("Connection", "").lower() == "close":
-                self.finish()
+            # if headers.get("Connection", "").lower() == "close":
+            #     self.finish()
         except Exception as e:
+            logging.error(f"Internal Server Error: {e}")
             self.send_response(500, f'Internal Server Error: {e}')
             self.end_headers()
+
+
+    # def finish(self):
+    #     super().finish()
+    #     client_ip = self.client_address[0]
+    #     MainServer.connected_clients -= 1
+    #     MainServer.client_ips.remove(client_ip)
 
     def read_headers(self):
         headers = {}

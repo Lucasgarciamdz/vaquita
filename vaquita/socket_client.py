@@ -18,8 +18,10 @@ class SocketClient:
     def __init__(self, host='localhost', port=22229):
         if self._initialized:
             return
+        self.host = host  # Set the host attribute
+        self.port = port  # Set the port attribute
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.sock.connect((host, port))
+        self.sock.connect((self.host, self.port))
         self.lock = threading.Lock()
         self._initialized = True
 
@@ -49,36 +51,39 @@ class SocketClient:
         print("Receiving response")
         # Initial large chunk receive
         data_chunk = self.sock.recv(4096).decode('utf-8')
-        # Splitting the chunk into lines
-        lines = data_chunk.split('\r\n')
+        if data_chunk == '':
+            return None
+        else:
+            # Splitting the chunk into lines
+            lines = data_chunk.split('\r\n')
 
-        # Extracting status code from the status line
-        status_line = lines[0]
-        status_code = status_line.split(' ')[1]
+            # Extracting status code from the status line
+            status_line = lines[0]
+            status_code = status_line.split(' ')[1]
 
-        # Parsing headers
-        headers = {}
-        body_start_index = 0
-        for i, line in enumerate(lines[1:], start=1):  # Start from the second line
-            if line == '':  # Empty line indicates end of headers
-                body_start_index = i + 1
-                break
-            key, value = line.split(': ', 1)
-            headers[key] = value
+            # Parsing headers
+            headers = {}
+            body_start_index = 0
+            for i, line in enumerate(lines[1:], start=1):  # Start from the second line
+                if line == '':  # Empty line indicates end of headers
+                    body_start_index = i + 1
+                    break
+                key, value = line.split(': ', 1)
+                headers[key] = value
 
-        # Determining how much of the body has been received and how much more needs to be read
-        content_length = int(headers.get('Content-Length', 0))
-        body = '\r\n'.join(lines[body_start_index:])  # Initial body part
-        while len(body) < content_length:
-            more_body = self.sock.recv(content_length - len(body)).decode('utf-8')
-            body += more_body
+            # Determining how much of the body has been received and how much more needs to be read
+            content_length = int(headers.get('Content-Length', 0))
+            body = '\r\n'.join(lines[body_start_index:])  # Initial body part
+            while len(body) < content_length:
+                more_body = self.sock.recv(content_length - len(body)).decode('utf-8')
+                body += more_body
 
-        print(f"Received response: {status_line}")
-        print(f"STATUS: {status_code}")
-        print(f"HEADERS: {headers}")
-        print(f"BODY: {body}")
+            print(f"Received response: {status_line}")
+            print(f"STATUS: {status_code}")
+            print(f"HEADERS: {headers}")
+            print(f"BODY: {body}")
 
-        return json.loads(body) if body else None
+            return json.loads(body) if body else None
 
 
     def close(self):
