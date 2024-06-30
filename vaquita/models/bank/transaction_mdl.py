@@ -1,6 +1,15 @@
 from enum import Enum as PyEnum
 
-from sqlalchemy import Column, Integer, String, ForeignKey, Enum, DateTime, Numeric, Boolean
+from sqlalchemy import (
+    Column,
+    Integer,
+    String,
+    ForeignKey,
+    Enum,
+    DateTime,
+    Numeric,
+    Boolean,
+)
 from sqlalchemy.orm import relationship
 
 from models.base_mdl import BaseMdl
@@ -8,6 +17,7 @@ from models.base_mdl import BaseMdl
 
 class TransactionCategory(PyEnum):
     """Transaction categories."""
+
     FOOD = "Food"
     RENT = "Rent"
     SERVICES = "Services"
@@ -24,6 +34,7 @@ class TransactionCategory(PyEnum):
 
 class TransactionType(PyEnum):
     """Transaction types."""
+
     INCOME = "Income"
     EXPENSE = "Expense"
     TRANSFER = "Transfer"
@@ -32,7 +43,7 @@ class TransactionType(PyEnum):
 class TransactionMdl(BaseMdl):
     """Transaction model."""
 
-    __tablename__ = 'transaction'
+    __tablename__ = "transaction"
 
     id = Column(Integer, primary_key=True)
     amount = Column(Numeric)
@@ -42,11 +53,31 @@ class TransactionMdl(BaseMdl):
     notes = Column(String)
     recurring = Column(Boolean)
     description = Column(String)
-    user_id = Column(Integer, ForeignKey('user.id'))
-    checking_account_id = Column(Integer, ForeignKey('checking_account.id'))
+    user_id = Column(Integer, ForeignKey("user.id"))
+    checking_account_id = Column(Integer, ForeignKey("checking_account.id"))
 
-    checking_account = relationship('CheckingAccountMdl', back_populates='transactions')
-    user = relationship('UserMdl', back_populates='transactions')
+    checking_account = relationship("CheckingAccountMdl", back_populates="transactions")
+    user = relationship("UserMdl", back_populates="transactions")
 
     def __repr__(self):
-        return f'Transaction(id={self.id}, amount={self.amount},recurring={self.recurring}, transaction_type={self.transaction_type}, category={self.category}, user_id={self.user_id})'
+        return f"Transaction(id={self.id}, amount={self.amount},recurring={self.recurring}, transaction_type={self.transaction_type}, category={self.category}, user_id={self.user_id})"
+
+    def to_dict(self, depth=1):
+        if depth < 0:
+            return self.id
+        return {
+            "id": self.id,
+            "amount": float(self.amount),
+            "transaction_type": self.transaction_type.name,
+            "category": self.category.name,
+            "date": self.date.isoformat(),
+            "notes": self.notes,
+            "recurring": self.recurring,
+            "description": self.description,
+            "user_id": self.user_id,
+            "checking_account_id": self.checking_account_id,
+            "checking_account": self.checking_account.to_dict(depth - 1)
+            if depth > 0
+            else None,
+            "user": self.user.to_dict(depth - 1) if depth > 0 else None,
+        }

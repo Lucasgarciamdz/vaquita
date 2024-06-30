@@ -12,7 +12,7 @@ LOG = setup_custom_logger(__name__)
 
 
 class ClientApp(App):
-    def __init__(self, host='localhost', port=8080):
+    def __init__(self, host="localhost", port=8080):
         super().__init__()
         self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.client_socket.connect((host, port))
@@ -28,15 +28,15 @@ class ClientApp(App):
 
     async def on_click(self, event: events.Click):
         LOG.info(f"Button clicked: {event.sender.name}")
-        if event.sender.name == 'quit':
-            self.client_socket.sendall('quit'.encode())
+        if event.sender.name == "quit":
+            self.client_socket.sendall("quit".encode())
             LOG.debug("Sent 'quit' command to server")
             await self.quit()
-        elif event.sender.name == 'personal account':
+        elif event.sender.name == "personal account":
             user_app = UserApp()
             await user_app.run()
             LOG.debug("Ran UserApp")
-        elif event.sender.name == 'vaquita':
+        elif event.sender.name == "vaquita":
             bank_app = BankApp()
             await bank_app.run()
             LOG.debug("Ran BankApp")

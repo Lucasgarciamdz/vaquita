@@ -1,4 +1,5 @@
 """Database setup for the Vaquita application."""
+
 import os
 from logging import Logger
 from typing import Optional
@@ -16,11 +17,11 @@ from models.base_mdl import BaseMdl
 script_dir = os.path.dirname(os.path.abspath(__file__))
 
 # Construct the path to the .env file
-env_path = os.path.join(script_dir, '../properties/.env')
+env_path = os.path.join(script_dir, "../properties/.env")
 
 # Load the .env file
 load_dotenv(env_path)
-DATABASE_URL: str = os.getenv('DATABASE_URL', 'not set')
+DATABASE_URL: str = os.getenv("DATABASE_URL", "not set")
 
 LOG: Logger = setup_custom_logger(__name__)
 
@@ -28,12 +29,12 @@ LOG: Logger = setup_custom_logger(__name__)
 class DatabaseManager:  # noqa: WPS306
     """A singleton class that manages a database using SQLAlchemy."""
 
-    _instance: Optional['DatabaseManager'] = None
+    _instance: Optional["DatabaseManager"] = None
     _session: Optional[scoped_session] = None
     engine: Engine
     session_factory: sessionmaker
 
-    def __new__(cls) -> 'DatabaseManager':
+    def __new__(cls) -> "DatabaseManager":
         """
         Ensure only one instance of the class can be created.
 
@@ -63,12 +64,12 @@ class DatabaseManager:  # noqa: WPS306
 
     def create_database(self) -> None:
         """Create all tables in the database."""
-        LOG.info('Creating database...')
+        LOG.info("Creating database...")
         BaseMdl.metadata.create_all(self.engine)
 
     def delete_database(self) -> None:
         """Drop all tables in the database."""
-        LOG.info('Deleting database...')
+        LOG.info("Deleting database...")
         with self.engine.begin() as connection:
             for table in reversed(BaseMdl.metadata.sorted_tables):
                 connection.execute(DDL(f'DROP TABLE IF EXISTS "{table.name}" CASCADE'))
@@ -82,9 +83,9 @@ class DatabaseManager:  # noqa: WPS306
         """
         try:
             with self.engine.connect() as connection:
-                LOG.info('Checking database connection...')
-                connection_status = connection.execute(text('SELECT 1'))
+                LOG.info("Checking database connection...")
+                connection_status = connection.execute(text("SELECT 1"))
                 return connection_status.scalar() == 1
         except exc.SQLAlchemyError:
-            LOG.error('Database connection failed.', exc_info=True)
+            LOG.error("Database connection failed.", exc_info=True)
             return False

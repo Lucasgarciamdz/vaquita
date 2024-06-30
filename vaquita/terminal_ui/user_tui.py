@@ -20,14 +20,16 @@ class RegisterForm(Screen):
         password = form_data[2].value
 
         try:
-            response_dict = self.socket_client.send_request_and_get_response('/users/register', 'POST',
-                                                                             {'name': name, 'email': email,
-                                                                              'password': password})
+            response_dict = self.socket_client.send_request_and_get_response(
+                "/users/register",
+                "POST",
+                {"name": name, "email": email, "password": password},
+            )
             if response_dict:
-                user_id = response_dict['user_id']
+                user_id = response_dict["user_id"]
                 self.dismiss(user_id)
             else:
-                raise Exception('No response received from the server')
+                raise Exception("No response received from the server")
         except Exception as e:
             self.mount(Static(str(e)))
 
@@ -53,19 +55,20 @@ class LoginForm(Screen):
         print(f"Attempting to log in with email: {email}, password: {password}")
 
         try:
-            response_dict = self.socket_client.send_request_and_get_response('/users/login', 'POST',
-                                                                             {'email': email, 'password': password})
+            response_dict = self.socket_client.send_request_and_get_response(
+                "/users/login", "POST", {"email": email, "password": password}
+            )
             print(f"Response dict: {response_dict}")
             if response_dict:
-                user_id = response_dict['user_id']
+                user_id = response_dict["user_id"]
                 if isinstance(user_id, int):
                     self.dismiss(user_id)
                 elif user_id == "false":
-                    raise Exception('Incorrect user')
+                    raise Exception("Incorrect user")
                 else:
-                    raise Exception('Unexpected user_id value received from the server')
+                    raise Exception("Unexpected user_id value received from the server")
             else:
-                raise Exception('No response received from the server')
+                raise Exception("No response received from the server")
         except Exception as e:
             self.mount(Static(str(e)))
 

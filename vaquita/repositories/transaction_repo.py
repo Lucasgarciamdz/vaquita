@@ -8,6 +8,5 @@ transaction_session = db.session
 
 
 class TransactionRepo(BaseRepo):
-
     def __init__(self):
         super().__init__(TransactionMdl, transaction_session)

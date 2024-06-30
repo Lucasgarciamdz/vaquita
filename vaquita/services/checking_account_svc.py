@@ -3,7 +3,11 @@ import string
 from datetime import datetime
 
 from models.bank.checking_account_mdl import CheckingAccountMdl
-from models.bank.transaction_mdl import TransactionMdl, TransactionType, TransactionCategory
+from models.bank.transaction_mdl import (
+    TransactionMdl,
+    TransactionType,
+    TransactionCategory,
+)
 from repositories.checking_account_repo import CheckingAccountRepo
 from repositories.transaction_repo import TransactionRepo
 
@@ -17,10 +21,20 @@ class CheckingAccountSvc:
         account = self.checking_account_repo.get_by_account_name(account_name)
         return account.get_balance()
 
-    def add_transaction(self, account_id, amount, transaction_type, category, notes, recurring, description, user_id):
+    def add_transaction(
+        self,
+        account_id,
+        amount,
+        transaction_type,
+        category,
+        notes,
+        recurring,
+        description,
+        user_id,
+    ):
         account = self.checking_account_repo.get(account_id)
         if account is None:
-            raise ValueError('Account not found for id: ' + str(account_id))
+            raise ValueError("Account not found for id: " + str(account_id))
         transaction = TransactionMdl(
             amount=amount,
             transaction_type=TransactionType[transaction_type],
@@ -30,7 +44,7 @@ class CheckingAccountSvc:
             recurring=recurring,
             description=description,
             user_id=user_id,
-            checking_account_id=account.id
+            checking_account_id=account.id,
         )
         self.transaction_repo.add(transaction)
         account.transactions.append(transaction)
@@ -44,8 +58,9 @@ class CheckingAccountSvc:
         new_account = CheckingAccountMdl()
         new_account.name = name
         if not personal:
-            new_account.account_number = '#' + ''.join(
-                random.choice(string.ascii_uppercase + string.digits) for _ in range(5))
+            new_account.account_number = "#" + "".join(
+                random.choice(string.ascii_uppercase + string.digits) for _ in range(5)
+            )
             new_account.set_password(password)
         new_account.balance = balance
         new_account.users = [user]

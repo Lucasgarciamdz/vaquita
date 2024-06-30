@@ -8,7 +8,6 @@ user_repo_session = db.session
 
 
 class UserRepo(BaseRepo):
-
     def __init__(self):
         super().__init__(UserMdl, user_repo_session)
 

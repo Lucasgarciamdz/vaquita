@@ -1,4 +1,5 @@
 """Set up a global logger method."""
+
 import logging
 
 
@@ -13,10 +14,13 @@ def setup_custom_logger(name: str) -> logging.Logger:
         logging.Logger: The configured logger.
     """
     formatter = logging.Formatter(
-        fmt=''.join([
-            '{name}: {asctime} | {levelname} | line:{lineno} | ',
-            '{process} >>> {message}',
-        ]), style='{',
+        fmt="".join(
+            [
+                "{name}: {asctime} | {levelname} | line:{lineno} | ",
+                "{process} >>> {message}",
+            ]
+        ),
+        style="{",
     )
 
     stream_handler = logging.StreamHandler()

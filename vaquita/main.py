@@ -29,21 +29,25 @@ class VaquitaApp(App):
     user_id = None
 
     def on_mount(self):
-
         def display_main_account(user_id):
             self.push_screen(CheckingAccountScreen(user_id))
 
         def display_main_menu(user_id):
-            response_dict = self.client.send_request_and_get_response('/users/accounts/' + str(user_id), method="GET")
+            response_dict = self.client.send_request_and_get_response(
+                "/users/accounts/" + str(user_id), method="GET"
+            )
+            print(f"Response dict: {response_dict}")
             if response_dict:
-                self.push_screen(CheckingAccountScreen(user_id))
+                self.push_screen(CheckingAccountScreen(response_dict, user_id))
             else:
-                self.push_screen(ConfigCheckingAccountScreen(user_id), display_main_account)
+                self.push_screen(
+                    ConfigCheckingAccountScreen(user_id), display_main_account
+                )
 
         def check_form(form):
-            if form == 'register':
+            if form == "register":
                 self.push_screen(screen=RegisterForm(), callback=display_main_menu)
-            elif form == 'login':
+            elif form == "login":
                 self.push_screen(screen=LoginForm(), callback=display_main_menu)
 
         self.push_screen(WelcomingScreen(), check_form)

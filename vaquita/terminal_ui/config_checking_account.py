@@ -11,7 +11,6 @@ user_service = UserSvc()
 
 
 class CreateBankScreen(Screen):
-
     def __init__(self, user_id: int):
         super().__init__()
         self.user_id = user_id
@@ -24,9 +23,17 @@ class CreateBankScreen(Screen):
         bank_balance = form_data[1].value
 
         try:
-            self.socket_client.send('/create_personal_bank', 'POST',
-                                    {'bank_name': bank_name, 'bank_balance': bank_balance, 'user_id': self.user_id,
-                                     'password': 'password', 'personal': True})
+            self.socket_client.send(
+                "/create_personal_bank",
+                "POST",
+                {
+                    "bank_name": bank_name,
+                    "bank_balance": bank_balance,
+                    "user_id": self.user_id,
+                    "password": "password",
+                    "personal": True,
+                },
+            )
             status, response_body = self.socket_client.receive()
             self.dismiss(True)
         except Exception as e:
@@ -39,7 +46,6 @@ class CreateBankScreen(Screen):
 
 
 class CreateVaquitaScreen(Screen):
-
     def __init__(self, user_id):
         super().__init__()
         self.user_id = user_id
@@ -52,15 +58,21 @@ class CreateVaquitaScreen(Screen):
         bank_balance = form_data[1].value
         password = form_data[2].value
 
-        response_dict = self.socket_client.send_request_and_get_response('/users/create_vaquita', 'POST',
-                                                                         {'bank_name': bank_name,
-                                                                          'bank_balance': bank_balance,
-                                                                          'user_id': self.user_id, 'password': password,
-                                                                          'personal': False})
+        response_dict = self.socket_client.send_request_and_get_response(
+            "/users/create_vaquita",
+            "POST",
+            {
+                "bank_name": bank_name,
+                "bank_balance": bank_balance,
+                "user_id": self.user_id,
+                "password": password,
+                "personal": False,
+            },
+        )
         if response_dict:
             self.dismiss(True)
         else:
-            raise Exception('No response received from the server')
+            raise Exception("No response received from the server")
 
     def compose(self):
         yield Input(placeholder="Bank Name", id="bank_name")
@@ -70,7 +82,6 @@ class CreateVaquitaScreen(Screen):
 
 
 class JoinVaquitaScreen(Screen):
-
     def __init__(self, user_id):
         super().__init__()
         self.user_id = user_id
@@ -82,11 +93,16 @@ class JoinVaquitaScreen(Screen):
         account_number = form_data[0].value
         password = form_data[1].value
 
-        response_dict = self.socket_client.send_request_and_get_response('/users/join_vaquita', 'POST',
-                                                                         {'user_id': self.user_id,
-                                                                          'vaquita_number': account_number,
-                                                                          'password': password})
-        if response_dict and response_dict['result']:
+        response_dict = self.socket_client.send_request_and_get_response(
+            "/users/join_vaquita",
+            "POST",
+            {
+                "user_id": self.user_id,
+                "vaquita_number": account_number,
+                "password": password,
+            },
+        )
+        if response_dict and response_dict["result"]:
             self.dismiss(True)
         else:
             self.mount(Static("Error joining vaquita"))
@@ -106,7 +122,6 @@ class ConfigCheckingAccountScreen(Screen):
 
     @on(Button.Pressed, "#create_bank")
     def show_create_bank(self):
-
         def check_bank_created(created):
             if created:
                 self.dismiss(self.user_id)
@@ -117,7 +132,6 @@ class ConfigCheckingAccountScreen(Screen):
 
     @on(Button.Pressed, "#create_vaquita")
     def show_create_vaquita(self):
-
         def check_vaquita_created(created):
             if created:
                 self.dismiss(self.user_id)

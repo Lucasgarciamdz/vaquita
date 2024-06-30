@@ -8,6 +8,5 @@ statistics_session = db.session
 
 
 class StatisticsRepo(BaseRepo):
-
     def __init__(self):
         super().__init__(StatisticsMdl, statistics_session)

@@ -1,6 +1,8 @@
 import json
 import socket
 import threading
+import uuid
+from queue import Queue, Empty
 
 
 class SocketClient:
@@ -8,14 +10,14 @@ class SocketClient:
     _lock = threading.Lock()
 
     def __new__(cls, *args, **kwargs):
-        if cls._instance is None:
+        if not cls._instance:
             with cls._lock:
-                if cls._instance is None:
+                if not cls._instance:
                     cls._instance = super(SocketClient, cls).__new__(cls)
                     cls._instance._initialized = False
         return cls._instance
 
-    def __init__(self, host='localhost', port=22229):
+    def __init__(self, host="localhost", port=22229):
         if self._initialized:
             return
         self.host = host
@@ -24,6 +26,12 @@ class SocketClient:
         self.connect()
         self.lock = threading.Lock()
         self._initialized = True
+        self.response_queues = {}
+        self.listener_thread = threading.Thread(
+            target=self.listen_for_updates, daemon=True
+        )
+        self.listener_thread.start()
+        self.update_handlers = []
 
     def connect(self):
         print("Connecting to server...")
@@ -36,58 +44,58 @@ class SocketClient:
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.connect()
 
-    def send_request_and_get_response(self, path, method='POST', body=None):
+    def send_request_and_get_response(self, path, method="POST", body=None):
+        request_id = str(uuid.uuid4())
+        response_queue = Queue()
+        self.response_queues[request_id] = response_queue
+
         with self.lock:
             if body is None:
                 body = {}
+            body["request_id"] = request_id
             body_str = json.dumps(body)
-            body_length = len(body_str.encode('utf-8'))
+            body_length = len(body_str.encode("utf-8"))
             request_line = f"{method} {path} HTTP/1.1\r\n"
             headers = f"Content-Length: {body_length}\r\n"
             request = f"{request_line}{headers}\r\n{body_str}"
             print(f"Sending request: {request}")
+            self.sock.sendall(request.encode("utf-8"))
+
+        response = response_queue.get(
+            timeout=35
+        )  # Wait for up to 10 seconds for a response
+        del self.response_queues[request_id]
+        return response
+
+    def listen_for_updates(self):
+        while True:
             try:
-                self.sock.sendall(request.encode('utf-8'))
-                return self.receive_response()
+                data_chunk = self.sock.recv(8192).decode("utf-8")
+                if data_chunk:
+                    print("Received data chunk: " + data_chunk)
+
+                    # Split the response into headers and body
+                    header_part, body_part = data_chunk.split("\r\n\r\n", 1)
+                    if "200" not in header_part:
+                        raise Exception("Non-200 response")
+                    body = json.loads(body_part)
+
+                    self.handle_data(body)
             except socket.error:
-                print("Socket error, reconnecting...")
-                self.reconnect()
-                self.sock.sendall(request.encode('utf-8'))
-                return self.receive_response()
+                print("Socket error in listener thread, reconnecting...")
+            except json.JSONDecodeError as e:
+                print(f"JSON decode error: {e}")
 
-    def receive_response(self):
-        data_chunk = self.sock.recv(8192).decode('utf-8')
-        print("Received data chunk from the server: " + data_chunk)
-        if not data_chunk:
-            print("No data received from the server")
-            return None
+    def handle_data(self, data):
+        request_id = data.get("request_id")
+        if request_id and request_id in self.response_queues:
+            self.response_queues[request_id].put(data.get("data"))
         else:
-            lines = data_chunk.split('\r\n')
-            status_line = lines[0]
-            status_code = status_line.split(' ')[1]
-            print(f"Received response: {status_line}")
+            self.handle_update(data.get("data"))
 
-            if "200" not in status_code:
-                print("Error response received" + status_line)
-                raise Exception("Error response received")
+    def handle_update(self, data):
+        for handler in self.update_handlers:
+            handler(data)
 
-            headers = {}
-            body_start_index = 0
-            for i, line in enumerate(lines[1:], start=1):
-                if line == '':
-                    body_start_index = i + 1
-                    break
-                key, value = line.split(': ', 1)
-                headers[key] = value
-
-            content_length = int(headers.get('Content-Length', 0))
-            body = '\r\n'.join(lines[body_start_index:])
-            if len(body) < content_length:
-                body = body.lstrip('\r\n')
-            while len(body) < content_length:
-                more_body = self.sock.recv(content_length - len(body)).decode('utf-8')
-                body += more_body
-
-            print(f"Body: {body}")
-            return json.loads(body) if body else None
-
+    def add_update_handler(self, handler):
+        self.update_handlers.append(handler)

@@ -13,14 +13,16 @@ class StatisticsApp(App):
 
     async def on_start(self):
         console = Console()
-        statistics_service = StatisticsSvc()  # Aquí deberías pasar tu repositorio de estadísticas
+        statistics_service = (
+            StatisticsSvc()
+        )  # Aquí deberías pasar tu repositorio de estadísticas
 
         while True:
             command = Prompt.choices
-            if command == 'quit':
+            if command == "quit":
                 break
             else:
-                if command == 'pie_chart':
+                if command == "pie_chart":
                     categories = [
                         "total_food",
                         "total_rent",
@@ -33,12 +35,15 @@ class StatisticsApp(App):
                         "total_entertainment",
                         "total_education",
                         "total_savings",
-                        "total_salary"
+                        "total_salary",
                     ]
-                    data = [statistics_service.get_metric_data(category) for category in categories]
+                    data = [
+                        statistics_service.get_metric_data(category)
+                        for category in categories
+                    ]
                     plt.pie(data, labels=categories)
                     plt.show()
-                elif command == 'line_graph':
+                elif command == "line_graph":
                     data = statistics_service.get_line_graph_data()
                     plt.plot(data)
                     plt.show()

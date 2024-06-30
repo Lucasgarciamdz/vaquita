@@ -5,16 +5,35 @@ from textual.screen import Screen
 from textual.widget import Widget
 from textual.widgets import Button, Input, Static, Tab, Tabs, Select
 
-from models.bank.transaction_mdl import TransactionType, TransactionCategory
-from services.checking_account_svc import CheckingAccountSvc
-from services.user_svc import UserSvc
-
-user_svc = UserSvc()
-checking_account_svc = CheckingAccountSvc()
+from enum import Enum as PyEnum
+from socket_client import SocketClient
 
 
-class CheckingAcoountTabs(Widget):
+socket_client = SocketClient()
 
+
+class TransactionCategory(PyEnum):
+    FOOD = "Food"
+    RENT = "Rent"
+    SERVICES = "Services"
+    TRANSPORTATION = "Transportation"
+    UTILITIES = "Utilities"
+    HEALTH = "Health"
+    INSURANCE = "Insurance"
+    PERSONAL = "Personal"
+    ENTERTAINMENT = "Entertainment"
+    EDUCATION = "Education"
+    SAVINGS = "Savings"
+    SALARY = "Salary"
+
+
+class TransactionType(PyEnum):
+    INCOME = "Income"
+    EXPENSE = "Expense"
+    TRANSFER = "Transfer"
+
+
+class CheckingAccountTabs(Widget):
     def __init__(self, checking_account_list: list):
         super().__init__()
         self.checking_account_list = checking_account_list
@@ -23,7 +42,7 @@ class CheckingAcoountTabs(Widget):
         tab_list = []
         if self.checking_account_list:
             for account in self.checking_account_list:
-                tab = Tab(label=account.name, id="id" + str(account.id))
+                tab = Tab(label=account["name"], id="id" + str(account["id"]))
                 tab_list.append(tab)
         else:
             tab_list.append(Tab("No accounts found"))
@@ -41,16 +60,22 @@ class CheckingAccountTransactions(Widget):
     def compose(self):
         for transaction in self.transactions_list_initial:
             yield Static(
-                str(str(transaction.date) + " " + str(transaction.description) + " " + str(transaction.amount)))
+                str(
+                    str(transaction["date"])
+                    + " "
+                    + str(transaction["description"])
+                    + " "
+                    + str(transaction["amount"])
+                )
+            )
 
 
 class AddTransactionScreen(Screen):
-
-    def __init__(self, user_id: int, account_name: str):
+    def __init__(self, user_id: int, account_id: int):
         super().__init__()
         self.category = None
         self.user_id = user_id
-        self.account_name = account_name
+        self.account_id = account_id
         self.transaction_types = [(t.name, t.name) for t in TransactionType]
         self.transaction_categories = [(c.name, c.name) for c in TransactionCategory]
 
@@ -64,8 +89,19 @@ class AddTransactionScreen(Screen):
         notes = form_data[1].value
         description = form_data[2].value
 
-        checking_account_svc.add_transaction(self.account_name, amount, self.transaction_type, self.category, notes,
-                                             False, description, self.user_id)
+        body = {
+            "account_id": self.account_id,
+            "amount": amount,
+            "transaction_type": self.transaction_type,
+            "category": self.category,
+            "notes": notes,
+            "user_id": self.user_id,
+            "description": description,
+        }
+
+        socket_client.send_request_and_get_response(
+            "/transactions/add", method="POST", body=body
+        )
 
         self.dismiss(True)
 
@@ -90,24 +126,38 @@ class AddTransactionScreen(Screen):
 class CheckingAccountScreen(Screen):
     refresh_transactions = reactive(False, recompose=True)
 
-    def __init__(self, user_id: int):
+    def __init__(self, response_dict, user_id):
         super().__init__()
         self.user_id = user_id
-        self.user_checking_accounts = user_svc.get_user_accounts(self.user_id)
-        self.transactions_list = self.user_checking_accounts[0].transactions
+        self.user_checking_accounts = response_dict
+        self.transactions_list = self.user_checking_accounts[0]["transactions"]
         self.current_account = self.user_checking_accounts[0]
+        socket_client.add_update_handler(self.handle_update)
+
+    def handle_update(self, data):
+        # Update logic based on received data
+        if data.get("type") == "transaction_update":
+            if data.get("account_id") == self.current_account["id"]:
+                self.transactions_list.append(data["transaction"])
+                self.refresh_transactions = not self.refresh_transactions
 
     @on(Button.Pressed, "#add_transaction")
     def add_transaction(self):
         def reload_transactions(transaction_created):
-            self.transactions_list = checking_account_svc.get_transactions(self.current_account.id)
+            response = socket_client.send_request_and_get_response(
+                f'/accounts/{self.current_account["id"]}/transactions', method="GET"
+            )
+            self.transactions_list = response.get("transactions", [])
             self.refresh_transactions = not self.refresh_transactions
 
-        self.app.push_screen(AddTransactionScreen(self.user_id, self.current_account.id), callback=reload_transactions)
+        self.app.push_screen(
+            AddTransactionScreen(self.user_id, self.current_account["id"]),
+            callback=reload_transactions,
+        )
 
     def compose(self) -> ComposeResult:
-        yield CheckingAcoountTabs(self.user_checking_accounts)
-        yield Static("Account number: " + str(self.user_checking_accounts[0].account_number))
-        yield Static("Balance: " + str(self.current_account.balance))
+        yield CheckingAccountTabs(self.user_checking_accounts)
+        yield Static("Account number: " + str(self.current_account["account_number"]))
+        yield Static("Balance: " + str(self.current_account["balance"]))
         yield CheckingAccountTransactions(self.transactions_list)
         yield Button("Add transaction", id="add_transaction")
