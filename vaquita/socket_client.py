@@ -1,5 +1,5 @@
-import socket
 import json
+import socket
 import threading
 
 
@@ -18,24 +18,26 @@ class SocketClient:
     def __init__(self, host='localhost', port=22229):
         if self._initialized:
             return
-        self.host = host  # Set the host attribute
-        self.port = port  # Set the port attribute
+        self.host = host
+        self.port = port
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.sock.connect((self.host, self.port))
+        self.connect()
         self.lock = threading.Lock()
         self._initialized = True
 
-    def ensure_connection(self):
-        try:
-            # Attempt to send a zero-length packet as a connection check.
-            self.sock.sendall(b'')
-        except socket.error:
-            # If sending fails, re-establish the connection.
-            self.sock.connect((self.host, self.port))
+    def connect(self):
+        print("Connecting to server...")
+        self.sock.connect((self.host, self.port))
+        print("Connected to server")
+
+    def reconnect(self):
+        print("Reconnecting to server...")
+        self.sock.close()
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.connect()
 
     def send_request_and_get_response(self, path, method='POST', body=None):
         with self.lock:
-            self.ensure_connection()
             if body is None:
                 body = {}
             body_str = json.dumps(body)
@@ -43,64 +45,49 @@ class SocketClient:
             request_line = f"{method} {path} HTTP/1.1\r\n"
             headers = f"Content-Length: {body_length}\r\n"
             request = f"{request_line}{headers}\r\n{body_str}"
-            self.sock.sendall(request.encode('utf-8'))
-
-            return self.receive_response()
+            print(f"Sending request: {request}")
+            try:
+                self.sock.sendall(request.encode('utf-8'))
+                return self.receive_response()
+            except socket.error:
+                print("Socket error, reconnecting...")
+                self.reconnect()
+                self.sock.sendall(request.encode('utf-8'))
+                return self.receive_response()
 
     def receive_response(self):
-        print("Receiving response")
-        # Initial large chunk receive
-        data_chunk = self.sock.recv(4096).decode('utf-8')
-        if data_chunk == '':
+        data_chunk = self.sock.recv(8192).decode('utf-8')
+        print("Received data chunk from the server: " + data_chunk)
+        if not data_chunk:
+            print("No data received from the server")
             return None
         else:
-            # Splitting the chunk into lines
             lines = data_chunk.split('\r\n')
-
-            # Extracting status code from the status line
             status_line = lines[0]
             status_code = status_line.split(' ')[1]
+            print(f"Received response: {status_line}")
 
-            # Parsing headers
+            if "200" not in status_code:
+                print("Error response received" + status_line)
+                raise Exception("Error response received")
+
             headers = {}
             body_start_index = 0
-            for i, line in enumerate(lines[1:], start=1):  # Start from the second line
-                if line == '':  # Empty line indicates end of headers
+            for i, line in enumerate(lines[1:], start=1):
+                if line == '':
                     body_start_index = i + 1
                     break
                 key, value = line.split(': ', 1)
                 headers[key] = value
 
-            # Determining how much of the body has been received and how much more needs to be read
             content_length = int(headers.get('Content-Length', 0))
-            body = '\r\n'.join(lines[body_start_index:])  # Initial body part
+            body = '\r\n'.join(lines[body_start_index:])
+            if len(body) < content_length:
+                body = body.lstrip('\r\n')
             while len(body) < content_length:
                 more_body = self.sock.recv(content_length - len(body)).decode('utf-8')
                 body += more_body
 
-            print(f"Received response: {status_line}")
-            print(f"STATUS: {status_code}")
-            print(f"HEADERS: {headers}")
-            print(f"BODY: {body}")
-
+            print(f"Body: {body}")
             return json.loads(body) if body else None
 
-
-    def close(self):
-        with self.lock:
-            self.sock.close()
-            self._initialized = False
-
-    def receive_forever(self):
-        while True:
-            data = self.receive_response()
-            if data:
-                print(f"Received data: {data}")
-
-
-# Usage example
-if __name__ == "__main__":
-    client = SocketClient()
-    response = client.send_request_and_get_response('/users/login', 'POST', {'email': 'example@example.com', 'password': 'password'})
-    print(f"Response: {response}")
-    client.close()

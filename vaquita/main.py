@@ -1,15 +1,14 @@
-import json
 from textual.app import App, ComposeResult
 from textual.widgets import Header, Footer, Static
 
 from database.database_manager import DatabaseManager
 from services.checking_account_svc import CheckingAccountSvc
 from services.user_svc import UserSvc
+from socket_client import SocketClient
 from terminal_ui.checking_account_tui import CheckingAccountScreen
 from terminal_ui.config_checking_account import ConfigCheckingAccountScreen
 from terminal_ui.user_tui import RegisterForm, LoginForm
 from terminal_ui.welcoming_tui import WelcomingScreen
-from socket_client import SocketClient
 
 db = DatabaseManager()
 
@@ -35,7 +34,7 @@ class VaquitaApp(App):
             self.push_screen(CheckingAccountScreen(user_id))
 
         def display_main_menu(user_id):
-            response_dict = self.client.send_request_and_get_response('/users/accounts/' + str(user_id))
+            response_dict = self.client.send_request_and_get_response('/users/accounts/' + str(user_id), method="GET")
             if response_dict:
                 self.push_screen(CheckingAccountScreen(user_id))
             else:

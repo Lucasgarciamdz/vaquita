@@ -48,6 +48,7 @@ class AddTransactionScreen(Screen):
 
     def __init__(self, user_id: int, account_name: str):
         super().__init__()
+        self.category = None
         self.user_id = user_id
         self.account_name = account_name
         self.transaction_types = [(t.name, t.name) for t in TransactionType]

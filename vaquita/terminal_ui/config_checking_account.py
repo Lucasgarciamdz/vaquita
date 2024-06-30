@@ -2,9 +2,9 @@ from textual import on
 from textual.screen import Screen
 from textual.widgets import Button, Input, Static
 
-from socket_client import SocketClient
 from services.checking_account_svc import CheckingAccountSvc
 from services.user_svc import UserSvc
+from socket_client import SocketClient
 
 account_service = CheckingAccountSvc()
 user_service = UserSvc()
@@ -15,7 +15,7 @@ class CreateBankScreen(Screen):
     def __init__(self, user_id: int):
         super().__init__()
         self.user_id = user_id
-        self.socket_client = SocketClient('localhost', 8000)
+        self.socket_client = SocketClient()
 
     @on(Button.Pressed, "#create_bank")
     def create_bank(self):
@@ -24,7 +24,9 @@ class CreateBankScreen(Screen):
         bank_balance = form_data[1].value
 
         try:
-            self.socket_client.send('/create_personal_bank', 'POST', {'bank_name': bank_name, 'bank_balance': bank_balance, 'user_id': self.user_id, 'password': 'password', 'personal': True})
+            self.socket_client.send('/create_personal_bank', 'POST',
+                                    {'bank_name': bank_name, 'bank_balance': bank_balance, 'user_id': self.user_id,
+                                     'password': 'password', 'personal': True})
             status, response_body = self.socket_client.receive()
             self.dismiss(True)
         except Exception as e:
@@ -50,14 +52,15 @@ class CreateVaquitaScreen(Screen):
         bank_balance = form_data[1].value
         password = form_data[2].value
 
-        # try:
-        response_dict = self.socket_client.send_request_and_get_response('/users/create_vaquita', 'POST', {'bank_name': bank_name, 'bank_balance': bank_balance, 'user_id': self.user_id, 'password': password, 'personal': False})
+        response_dict = self.socket_client.send_request_and_get_response('/users/create_vaquita', 'POST',
+                                                                         {'bank_name': bank_name,
+                                                                          'bank_balance': bank_balance,
+                                                                          'user_id': self.user_id, 'password': password,
+                                                                          'personal': False})
         if response_dict:
             self.dismiss(True)
         else:
             raise Exception('No response received from the server')
-        # except Exception as e:
-        #     self.mount(Static(str(e)))
 
     def compose(self):
         yield Input(placeholder="Bank Name", id="bank_name")
@@ -79,7 +82,10 @@ class JoinVaquitaScreen(Screen):
         account_number = form_data[0].value
         password = form_data[1].value
 
-        response_dict = self.socket_client.send_request_and_get_response('/users/join_vaquita', 'POST', {'user_id': self.user_id, 'vaquita_number': account_number, 'password': password})
+        response_dict = self.socket_client.send_request_and_get_response('/users/join_vaquita', 'POST',
+                                                                         {'user_id': self.user_id,
+                                                                          'vaquita_number': account_number,
+                                                                          'password': password})
         if response_dict and response_dict['result']:
             self.dismiss(True)
         else:

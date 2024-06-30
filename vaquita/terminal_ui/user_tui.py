@@ -1,11 +1,7 @@
-import json
-
 from textual import on
 from textual.screen import Screen
 from textual.widgets import Button, Input, Static
 
-
-from http.client import HTTPConnection
 from socket_client import SocketClient
 
 
@@ -24,7 +20,9 @@ class RegisterForm(Screen):
         password = form_data[2].value
 
         try:
-            response_dict = self.socket_client.send_request_and_get_response('/users/register', 'POST', {'name': name, 'email': email, 'password': password})
+            response_dict = self.socket_client.send_request_and_get_response('/users/register', 'POST',
+                                                                             {'name': name, 'email': email,
+                                                                              'password': password})
             if response_dict:
                 user_id = response_dict['user_id']
                 self.dismiss(user_id)
@@ -52,10 +50,11 @@ class LoginForm(Screen):
         form_data = self.query(Input)
         email = form_data[0].value
         password = form_data[1].value
+        print(f"Attempting to log in with email: {email}, password: {password}")
 
-        print("hello world")
         try:
-            response_dict = self.socket_client.send_request_and_get_response('/users/login', 'POST', {'email': email, 'password': password})
+            response_dict = self.socket_client.send_request_and_get_response('/users/login', 'POST',
+                                                                             {'email': email, 'password': password})
             print(f"Response dict: {response_dict}")
             if response_dict:
                 user_id = response_dict['user_id']

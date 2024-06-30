@@ -16,7 +16,7 @@ class StatisticsApp(App):
         statistics_service = StatisticsSvc()  # Aquí deberías pasar tu repositorio de estadísticas
 
         while True:
-            command = Prompt.choices("Choose a command", choices=["pie_chart", "line_graph", "quit"])
+            command = Prompt.choices
             if command == 'quit':
                 break
             else:
