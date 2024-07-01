@@ -1,0 +1,20 @@
+# Ignore Git and version control
+.git
+.gitignore
+
+# Ignore temporary/build files
+*.pyc
+__pycache__/
+tmp/
+
+# Ignore Dockerfile and .dockerignore to minimize build context
+Dockerfile
+.dockerignore
+
+# Ignore specific directories that are not needed in the build
+vaquita/main.py
+vaquita/socket_client.py
+vaquita/terminal_ui
+
+# Ignore environment files
+*.env

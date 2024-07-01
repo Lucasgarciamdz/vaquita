@@ -1,4 +1,5 @@
 # server.py
+import socket
 import socketserver
 import json
 import threading
@@ -17,6 +18,11 @@ class EnhancedJSONEncoder(json.JSONEncoder):
 
 class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
     allow_reuse_address = True
+    
+    def __init__(self, server_address, RequestHandlerClass, bind_and_activate=True, address_family=socket.AF_INET):
+        self.address_family = address_family
+        super().__init__(server_address, RequestHandlerClass, bind_and_activate)
+
 
 
 logging.basicConfig(
@@ -56,12 +62,6 @@ class MainServer(socketserver.StreamRequestHandler):
         )
 
     def handle(self):
-        # Start a new thread for reading messages
-        self.read_thread = threading.Thread(target=self.handle_read)
-        self.read_thread.start()
-        self.read_thread.join()  # Wait for the thread to complete
-
-    def handle_read(self):
         try:
             while True:
                 request_line = self.rfile.readline().decode().strip()
@@ -125,7 +125,13 @@ class MainServer(socketserver.StreamRequestHandler):
 
 
 if __name__ == "__main__":
-    HOST, PORT = "localhost", 22229
-    print(f"Server started on {HOST}:{PORT}")
-    with ThreadedTCPServer((HOST, PORT), MainServer) as server:
-        server.serve_forever()
+    HOST, PORT = "0.0.0.0", 22229  # Use "0.0.0.0" for IPv4 or "::" for IPv6 to listen on all interfaces
+    try:
+        addr_info = socket.getaddrinfo(HOST, PORT, socket.AF_UNSPEC, socket.SOCK_STREAM, 0, socket.AI_PASSIVE)
+        addr_family = addr_info[0][0]  # Get address family based on the host
+
+        print(f"Server starting on {HOST}:{PORT} with address family {addr_family}")
+        with ThreadedTCPServer((HOST, PORT), MainServer, address_family=addr_family) as server:
+            server.serve_forever()
+    except Exception as e:
+        print(f"Failed to start server: {e}")

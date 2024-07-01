@@ -1,24 +1,14 @@
-# syntax=docker/dockerfile:1.2
+FROM python:3.9-slim-buster
 
-# Stage 1: Build
-FROM python:3.9-slim-buster AS build
+WORKDIR /usr/src/app
 
-WORKDIR /app
+COPY ./requirements.txt .
+COPY ./vaquita .
 
-# Leverage Docker layer caching by copying and installing requirements first
-COPY requirements.txt .
-RUN --mount=type=cache,target=/root/.cache/pip pip install -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the rest of the code
-COPY . .
+EXPOSE 22229
 
-# Stage 2: Run
-FROM python:3.9-slim-buster AS run
+ENV DATABASE_URL=postgresql://lucas:OnyYdjcX8nE9DlcRd98dN65DGBFsHmxn@dpg-cpst8piju9rs73ahjr80-a.oregon-postgres.render.com/vaquita_4y1j
 
-WORKDIR /app
-
-# Copy from build stage
-COPY --from=build /app .
-
-# Run the application
-CMD ["python", "your_app.py"]
+CMD ["python", "server.py"]
