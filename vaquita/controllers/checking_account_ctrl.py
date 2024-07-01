@@ -19,7 +19,7 @@ def notify_clients(account_id, transaction):
             response = json.dumps({
                 "type": "transaction_update",
                 "account_id": account_id,
-                "transaction": transaction.to_dict(),
+                "transaction": transaction,
             }).encode("utf-8") + b"\n"
 
             try:

@@ -1,0 +1,1900 @@
+"""Database setup for the Vaquita application."""
+
+import os
+from logging import Logger
+from typing import Optional
+
+from dotenv import load_dotenv
+from sqlalchemy import DDL
+from sqlalchemy import create_engine, exc, text
+from sqlalchemy.engine import Engine
+from sqlalchemy.orm import scoped_session, sessionmaker
+
+from config.logger_config import setup_custom_logger
+from models.base_mdl import BaseMdl
+
+# Get the absolute path of the directory where the script is located
+script_dir = os.path.dirname(os.path.abspath(__file__))
+
+# Construct the path to the .env file
+env_path = os.path.join(script_dir, "../properties/.env")
+
+# Load the .env file
+load_dotenv(env_path)
+DATABASE_URL: str = os.getenv("DATABASE_URL", "not set")
+
+LOG: Logger = setup_custom_logger(__name__)
+
+
+class DatabaseManager:  # noqa: WPS306
+    """A singleton class that manages a database using SQLAlchemy."""
+
+    _instance: Optional["DatabaseManager"] = None
+    _session: Optional[scoped_session] = None
+    engine: Engine
+    session_factory: sessionmaker
+
+    def __new__(cls) -> "DatabaseManager":
+        """
+        Ensure only one instance of the class can be created.
+
+        Returns:
+            DatabaseManager: The singleton instance of this class.
+        """
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
+
+    def __init__(self) -> None:
+        """Initialize the database manager with the given database URL."""
+        self.engine = create_engine(DATABASE_URL)
+        self.session_factory = sessionmaker(bind=self.engine)
+
+    @property
+    def session(self) -> scoped_session:
+        """
+        Return a singleton session. If no session exists, one is created.
+
+        Returns:
+            scoped_session: The singleton session.
+        """
+        if self._session is None:
+            self._session = scoped_session(self.session_factory)
+        return self._session
+
+    def create_database(self) -> None:
+        """Create all tables in the database."""
+        LOG.info("Creating database...")
+        BaseMdl.metadata.create_all(self.engine)
+
+    def delete_database(self) -> None:
+        """Drop all tables in the database."""
+        LOG.info("Deleting database...")
+        with self.engine.begin() as connection:
+            for table in reversed(BaseMdl.metadata.sorted_tables):
+                connection.execute(DDL(f'DROP TABLE IF EXISTS "{table.name}" CASCADE'))
+
+    def check_connection(self) -> bool:
+        """
+        Check the database connection.
+
+        Returns:
+            bool: True if the connection is successful, False otherwise.
+        """
+        try:
+            with self.engine.connect() as connection:
+                LOG.info("Checking database connection...")
+                connection_status = connection.execute(text("SELECT 1"))
+                return connection_status.scalar() == 1
+        except exc.SQLAlchemyError:
+            LOG.error("Database connection failed.", exc_info=True)
+            return False
+# server.py
+import socketserver
+import json
+import threading
+from controllers.checking_account_ctrl import CheckingAccountController
+from controllers.readyz_ctrl import ReadyzController
+from controllers.user_ctrl import UserController
+import logging
+
+
+class EnhancedJSONEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if hasattr(obj, "__dict__"):
+            return obj.__dict__
+        return super().default(obj)
+
+
+class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
+    allow_reuse_address = True
+
+
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
+
+
+class MainServer(socketserver.StreamRequestHandler):
+    client_count = 0
+    connected_clients = {}
+
+    def setup(self):
+        super().setup()
+        self.controllers = {
+            "/readyz": ReadyzController(),
+            "/users": UserController(),
+            "/checking_accounts": CheckingAccountController(),
+        }
+        client_ip = self.client_address[0]
+        MainServer.client_count += 1
+        logging.info(
+            f"Client connected: {client_ip}. Total connected clients: {MainServer.client_count}"
+        )
+
+    def find_controller(self, path):
+        for prefix, controller in self.controllers.items():
+            if path.startswith(prefix):
+                return controller
+        return None
+
+    def finish(self):
+        super().finish()
+        client_ip = self.client_address[0]
+        MainServer.client_count -= 1
+        logging.info(
+            f"Client disconnected: {client_ip}. Total connected clients: {MainServer.client_count}"
+        )
+
+    def handle(self):
+        # Start a new thread for reading messages
+        self.read_thread = threading.Thread(target=self.handle_read)
+        self.read_thread.start()
+        self.read_thread.join()  # Wait for the thread to complete
+
+    def handle_read(self):
+        try:
+            while True:
+                request_line = self.rfile.readline().decode().strip()
+                if not request_line:
+                    break
+
+                method, path, version = request_line.split(" ")
+                logging.info(
+                    f"Incoming request: {method} {path} from {self.client_address[0]}"
+                )
+
+                headers = self.read_headers()
+                content_length = int(headers.get("Content-Length", 0))
+                body = (
+                    self.rfile.read(content_length).decode() if content_length else ""
+                )
+
+                controller = self.find_controller(path)
+                self.request_id = json.loads(body).get("request_id")
+
+                if controller:
+                    if method == "GET":
+                        controller.do_GET(self, path, headers, body)
+                    elif method == "POST":
+                        controller.do_POST(self, path, headers, body)
+                else:
+                    self.send_response(404, "Not Found")
+                    self.end_headers()
+        except Exception as e:
+            logging.error(f"Internal Server Error: {e}")
+            self.send_response(500, f"Internal Server Error: {e}")
+            self.end_headers()
+
+    def send_response(self, status_code, message="", body=""):
+        if self.request_id:
+            body_data = json.loads(body) if body else {}
+            body_data = {"request_id": self.request_id, "data": body_data}
+            body = json.dumps(body_data)
+        response_line = f"HTTP/1.1 {status_code} {message}\r\n"
+        headers = f"Content-Type: application/json\r\nContent-Length: {len(body.encode('utf-8'))}\r\n\r\n"
+        self.wfile.write(response_line.encode() + headers.encode() + body.encode())
+        logging.info(f"Response sent: {status_code} {message}")
+        self.wfile.flush()
+
+    def read_headers(self):
+        headers = {}
+        while True:
+            header_line = self.rfile.readline().decode().strip()
+            if header_line == "":
+                break
+            key, value = header_line.split(": ", 1)
+            headers[key] = value
+        return headers
+
+    def send_header(self, key, value):
+        self.wfile.write(f"{key}: {value}\r\n".encode())
+
+    def end_headers(self):
+        self.wfile.write("\r\n".encode())
+        self.wfile.flush()
+
+
+if __name__ == "__main__":
+    HOST, PORT = "localhost", 22229
+    print(f"Server started on {HOST}:{PORT}")
+    with ThreadedTCPServer((HOST, PORT), MainServer) as server:
+        server.serve_forever()
+# socket_client.py
+import json
+import socket
+import threading
+import uuid
+from queue import Queue, Empty
+import logging
+
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+
+class SocketClient:
+    _instance = None
+    _lock = threading.Lock()
+
+    def __new__(cls, *args, **kwargs):
+        if not cls._instance:
+            with cls._lock:
+                if not cls._instance:
+                    cls._instance = super().__new__(cls)
+                    cls._instance._initialize()
+        return cls._instance
+
+    def _initialize(self):
+        self.host = "localhost"
+        self.port = 22229
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.connect()
+        self.lock = threading.Lock()
+        self.response_queues = {}
+        self.listener_thread = threading.Thread(target=self.listen_for_updates, daemon=True)
+        self.listener_thread.start()
+        self.update_handlers = []
+        self.partial_data = ""
+
+    def connect(self):
+        self.sock.connect((self.host, self.port))
+        print(f"Connected to server at {self.host}:{self.port}")
+
+    def send_request_and_get_response(self, path, method="POST", body=None):
+        request_id = str(uuid.uuid4())
+        response_queue = Queue()
+        self.response_queues[request_id] = response_queue
+
+        if body is None:
+            body = {}
+        body["request_id"] = request_id
+        body_str = json.dumps(body)
+        request = f"{method} {path} HTTP/1.1\r\nContent-Length: {len(body_str)}\r\n\r\n{body_str}"
+
+        with self.lock:
+            self.sock.sendall(request.encode("utf-8"))
+            print(f"Sent request: {request}")
+
+        try:
+            response = response_queue.get(timeout=20)  # Increase timeout to 20 seconds
+        except Empty:
+            print("Request timed out")
+            return None
+        finally:
+            del self.response_queues[request_id]
+
+        return response
+
+    def listen_for_updates(self):
+        while True:
+            try:
+                data_chunk = self.sock.recv(16384).decode("utf-8")
+                if data_chunk:
+                    self.partial_data += data_chunk
+                    while "\r\n\r\n" in self.partial_data:
+                        headers, self.partial_data = self.partial_data.split("\r\n\r\n", 1)
+                        if "Content-Length" in headers:
+                            content_length = int(headers.split("Content-Length: ")[1].split("\r\n")[0])
+                            if len(self.partial_data) >= content_length:
+                                message = self.partial_data[:content_length]
+                                self.partial_data = self.partial_data[content_length:]
+                                if message:
+                                    self.process_message(message)
+            except Exception as e:
+                print(f"Error in listener thread: {e}")
+
+    def process_message(self, message):
+        try:
+            data = json.loads(message)
+            print(f"Received data: {data}")
+            self.handle_data(data)
+        except json.JSONDecodeError as e:
+            print(f"JSON decode error: {e} - Partial data: {message}")
+
+    def handle_data(self, data):
+        request_id = data.get("request_id")
+        if request_id and request_id in self.response_queues:
+            self.response_queues[request_id].put(data.get("data"))
+        else:
+            self.handle_update(data.get("data"))
+
+    def handle_update(self, data):
+        for handler in self.update_handlers:
+            handler(data)
+
+    def add_update_handler(self, handler):
+        self.update_handlers.append(handler)
+"""Set up a global logger method."""
+
+import logging
+
+
+def setup_custom_logger(name: str) -> logging.Logger:
+    """
+    Set up a custom logger with the desired logging level and format.
+
+    Args:
+        name (str): The name of the logger.
+
+    Returns:
+        logging.Logger: The configured logger.
+    """
+    formatter = logging.Formatter(
+        fmt="".join(
+            [
+                "{name}: {asctime} | {levelname} | line:{lineno} | ",
+                "{process} >>> {message}",
+            ]
+        ),
+        style="{",
+    )
+
+    stream_handler = logging.StreamHandler()
+    stream_handler.setFormatter(formatter)
+
+    logger = logging.getLogger(name)
+    logger.setLevel(logging.DEBUG)
+    logger.addHandler(stream_handler)
+    return logger
+import socket
+
+from textual import events
+from textual.app import App
+from textual.widgets import Button, ScrollView
+
+from vaquita.config.logger_config import setup_custom_logger
+from vaquita.terminal_ui.config_checking_account import BankApp
+from vaquita.terminal_ui.user_tui import UserApp
+
+LOG = setup_custom_logger(__name__)
+
+
+class ClientApp(App):
+    def __init__(self, host="localhost", port=8080):
+        super().__init__()
+        self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.client_socket.connect((host, port))
+        LOG.info(f"Connected to server at {host}:{port}")
+
+    async def on_mount(self):
+        buttons = ScrollView()
+        for command in ["personal account", "vaquita", "quit"]:
+            button = Button(command, name=command)
+            buttons.add(button)
+        await self.view.dock(buttons, edge="left", size=30)
+        LOG.debug("Mounted buttons on view")
+
+    async def on_click(self, event: events.Click):
+        LOG.info(f"Button clicked: {event.sender.name}")
+        if event.sender.name == "quit":
+            self.client_socket.sendall("quit".encode())
+            LOG.debug("Sent 'quit' command to server")
+            await self.quit()
+        elif event.sender.name == "personal account":
+            user_app = UserApp()
+            await user_app.run()
+            LOG.debug("Ran UserApp")
+        elif event.sender.name == "vaquita":
+            bank_app = BankApp()
+            await bank_app.run()
+            LOG.debug("Ran BankApp")
+        else:
+            self.client_socket.sendall(event.sender.name.encode())
+            LOG.debug(f"Sent '{event.sender.name}' command to server")
+            response = self.client_socket.recv(1024).decode()
+            self.console.print(response)
+            LOG.info(f"Received response from server: {response}")
+
+    async def on_exit(self, event: events.Exit):
+        self.client_socket.close()
+        LOG.info("Closed connection to server")
+
+
+ClientApp.run()
+from base_repo import BaseRepo
+from vaquita.database.database_manager import DatabaseManager
+from vaquita.models.statistics.statistics_mdl import StatisticsMdl
+
+db = DatabaseManager()
+
+statistics_session = db.session
+
+
+class StatisticsRepo(BaseRepo):
+    def __init__(self):
+        super().__init__(StatisticsMdl, statistics_session)
+from database.database_manager import DatabaseManager
+from models.bank.transaction_mdl import TransactionMdl
+from repositories.base_repo import BaseRepo
+
+db = DatabaseManager()
+
+transaction_session = db.session
+
+
+class TransactionRepo(BaseRepo):
+    def __init__(self):
+        super().__init__(TransactionMdl, transaction_session)
+from database.database_manager import DatabaseManager
+from models.user_mdl import UserMdl
+from repositories.base_repo import BaseRepo
+
+db = DatabaseManager()
+
+user_repo_session = db.session
+
+
+class UserRepo(BaseRepo):
+    def __init__(self):
+        super().__init__(UserMdl, user_repo_session)
+
+    def get_by_email(self, email):
+        return self.session.query(UserMdl).filter_by(email=email).first()
+# base_repo.py
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm import scoped_session
+from config.logger_config import setup_custom_logger
+import hashlib
+
+class BaseRepo:
+    logged_operations = set()  # Make logged_operations a class variable
+
+    def __init__(self, model, session: scoped_session):
+        self.model = model
+        self.session = session
+        self.log = setup_custom_logger(self.__class__.__name__)
+
+    def add(self, entity):
+        self.session.add(entity)
+        self.session.commit()
+        self.session.refresh(entity)
+        self._log_info_once("add", entity=entity)
+
+    def get(self, id):
+        entity = self.session.query(self.model).get(id)
+        self._log_info_once("get", id=id, entity=entity)
+        return entity
+
+    def get_all(self):
+        entities = self.session.query(self.model).all()
+        self._log_info_once("get_all", entities=entities)
+        return entities
+
+    def update(self, entity):
+        try:
+            self.session.merge(entity)
+            self.session.commit()
+            self._log_info_once("update", entity=entity)
+        except SQLAlchemyError:
+            self.session.rollback()
+            self.log.exception("Failed to update entity")
+
+    def delete(self, entity):
+        try:
+            self.session.delete(entity)
+            self.session.commit()
+            self._log_info_once("delete", entity=entity)
+        except SQLAlchemyError:
+            self.session.rollback()
+            self.log.exception("Failed to delete entity")
+
+    def _log_info_once(self, operation, **kwargs):
+        key = self._generate_operation_key(operation, **kwargs)
+        if key not in self.logged_operations:
+            message = f"{operation.capitalize()} operation: {kwargs}"
+            print(message)
+            self.logged_operations.add(key)
+
+    def _generate_operation_key(self, operation, **kwargs):
+        # If 'entity' is in kwargs and it has an 'id' attribute, use only the operation and entity ID for the key
+        entity = kwargs.get('entity')
+        if entity and hasattr(entity, 'id'):
+            key_str = f"{operation}:{entity.id}"
+        else:
+            # Fallback to using all kwargs if 'entity' or 'entity.id' is not available
+            sorted_kwargs = sorted(kwargs.items())
+            key_str = f"{operation}:{sorted_kwargs}"
+        return hashlib.md5(key_str.encode()).hexdigest()from database.database_manager import DatabaseManager
+from models.bank.checking_account_mdl import CheckingAccountMdl
+from repositories.base_repo import BaseRepo
+
+db = DatabaseManager()
+
+checking_account_session = db.session
+
+
+class CheckingAccountRepo(BaseRepo):
+    def __init__(self):
+        super().__init__(CheckingAccountMdl, checking_account_session)
+
+    def get_by_account_number(self, account_number):
+        return (
+            self.session.query(CheckingAccountMdl)
+            .filter_by(account_number=account_number)
+            .first()
+        )
+
+    def get_by_account_name(self, account_name):
+        return (
+            self.session.query(CheckingAccountMdl).filter_by(name=account_name).first()
+        )
+from sqlalchemy import Column, Integer, Numeric, JSON
+
+from models.base_mdl import BaseMdl
+
+
+class StatisticsMdl(BaseMdl):
+    """statistics."""
+
+    __tablename__ = "Statistics"
+
+    id = Column(Integer, primary_key=True)
+    balance = Column(Numeric)
+    total_income = Column(Numeric)
+    total_expense = Column(Numeric)
+    total_food = Column(Numeric)
+    total_rent = Column(Numeric)
+    total_services = Column(Numeric)
+    total_transportation = Column(Numeric)
+    total_utilities = Column(Numeric)
+    total_health = Column(Numeric)
+    total_insurance = Column(Numeric)
+    total_personal = Column(Numeric)
+    total_entertainment = Column(Numeric)
+    total_education = Column(Numeric)
+    total_savings = Column(Numeric)
+    total_salary = Column(Numeric)
+    average_transaction_value = Column(Numeric)
+    largest_expense = Column(Numeric)
+    largest_income = Column(Numeric)
+    total_transactions = Column(Integer)
+    total_expenses_transactions = Column(Integer)
+    total_income_transactions = Column(Integer)
+    monthly_expense_average = Column(Numeric)
+    monthly_income_average = Column(Numeric)
+    daily_expense_average = Column(Numeric)
+    daily_income_average = Column(Numeric)
+    expense_category_percentage = Column(JSON)
+    income_category_percentage = Column(JSON)
+    transaction_frequency = Column(JSON)
+    income_vs_expense = Column(Numeric)
+
+    checking_account_id = Column(Integer)
+
+    def __repr__(self):
+        return f"CheckingAccountStats(id={self.id}, balance={self.balance}, total_income={self.total_income}, total_expense={self.total_expense}, checking_account_id={self.checking_account_id})"
+
+    def to_dict(self, depth=1):
+        if depth < 0:
+            return self.id
+        return {
+            "id": self.id,
+            "balance": float(self.balance),
+            "total_income": float(self.total_income),
+            "total_expense": float(self.total_expense),
+            "total_food": float(self.total_food),
+            "total_rent": float(self.total_rent),
+            "total_services": float(self.total_services),
+            "total_transportation": float(self.total_transportation),
+            "total_utilities": float(self.total_utilities),
+            "total_health": float(self.total_health),
+            "total_insurance": float(self.total_insurance),
+            "total_personal": float(self.total_personal),
+            "total_entertainment": float(self.total_entertainment),
+            "total_education": float(self.total_education),
+            "total_savings": float(self.total_savings),
+            "total_salary": float(self.total_salary),
+            "average_transaction_value": float(self.average_transaction_value),
+            "largest_expense": float(self.largest_expense),
+            "largest_income": float(self.largest_income),
+            "total_transactions": self.total_transactions,
+            "total_expenses_transactions": self.total_expenses_transactions,
+            "total_income_transactions": self.total_income_transactions,
+            "monthly_expense_average": float(self.monthly_expense_average),
+            "monthly_income_average": float(self.monthly_income_average),
+            "daily_expense_average": float(self.daily_expense_average),
+            "daily_income_average": float(self.daily_income_average),
+            "expense_category_percentage": self.expense_category_percentage,
+            "income_category_percentage": self.income_category_percentage,
+            "transaction_frequency": self.transaction_frequency,
+            "income_vs_expense": float(self.income_vs_expense),
+            "checking_account_id": self.checking_account_id,
+        }
+# base_mdl.py
+from sqlalchemy.ext.declarative import declarative_base
+
+Base = declarative_base()
+
+
+class BaseMdl(Base):
+    """Base class for all models."""
+
+    __abstract__ = True
+
+    def as_dict(self):
+        """Return the model as a dictionary."""
+        return {c.name: getattr(self, c.name) for c in self.__table__.columns}
+from sqlalchemy import Column, Integer, String
+from sqlalchemy.orm import relationship
+from werkzeug.security import generate_password_hash, check_password_hash
+
+from models.bank.checking_account_mdl import user_account_association
+from models.base_mdl import BaseMdl
+
+
+class UserMdl(BaseMdl):
+    """User model."""
+
+    __tablename__ = "user"
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String(50), nullable=False)
+    email = Column(String(120), unique=True, nullable=False)
+    password_hash = Column(String(256))
+
+    checking_accounts = relationship(
+        "CheckingAccountMdl", secondary=user_account_association, back_populates="users"
+    )
+    transactions = relationship("TransactionMdl", back_populates="user")
+
+    def set_password(self, password):
+        """Hash the password and store the hash."""
+        self.password_hash = generate_password_hash(password)
+
+    def check_password(self, password):
+        """Check a password against the stored hash."""
+        return check_password_hash(self.password_hash, password)
+
+    def __repr__(self):
+        return f"User(id={self.id}, name={self.name}, email={self.email})"
+
+    def to_dict(self, depth=1):
+        if depth < 0:
+            return self.id
+        return {
+            "id": self.id,
+            "name": self.name,
+            "email": self.email,
+            "checking_accounts": [
+                account.to_dict(depth - 1) for account in self.checking_accounts
+            ]
+            if depth > 0
+            else None,
+            "transactions": [
+                transaction.to_dict(depth - 1) for transaction in self.transactions
+            ]
+            if depth > 0
+            else None,
+        }
+from enum import Enum as PyEnum
+
+from sqlalchemy import (
+    Column,
+    Integer,
+    String,
+    ForeignKey,
+    Enum,
+    DateTime,
+    Numeric,
+    Boolean,
+)
+from sqlalchemy.orm import relationship
+
+from models.base_mdl import BaseMdl
+
+
+class TransactionCategory(PyEnum):
+    """Transaction categories."""
+
+    FOOD = "Food"
+    RENT = "Rent"
+    SERVICES = "Services"
+    TRANSPORTATION = "Transportation"
+    UTILITIES = "Utilities"
+    HEALTH = "Health"
+    INSURANCE = "Insurance"
+    PERSONAL = "Personal"
+    ENTERTAINMENT = "Entertainment"
+    EDUCATION = "Education"
+    SAVINGS = "Savings"
+    SALARY = "Salary"
+
+
+class TransactionType(PyEnum):
+    """Transaction types."""
+
+    INCOME = "Income"
+    EXPENSE = "Expense"
+    TRANSFER = "Transfer"
+
+
+class TransactionMdl(BaseMdl):
+    """Transaction model."""
+
+    __tablename__ = "transaction"
+
+    id = Column(Integer, primary_key=True)
+    amount = Column(Numeric)
+    transaction_type = Column(Enum(TransactionType))
+    category = Column(Enum(TransactionCategory))
+    date = Column(DateTime)
+    notes = Column(String)
+    recurring = Column(Boolean)
+    description = Column(String)
+    user_id = Column(Integer, ForeignKey("user.id"))
+    checking_account_id = Column(Integer, ForeignKey("checking_account.id"))
+
+    checking_account = relationship("CheckingAccountMdl", back_populates="transactions")
+    user = relationship("UserMdl", back_populates="transactions")
+
+    def __repr__(self):
+        return f"Transaction(id={self.id}, amount={self.amount},recurring={self.recurring}, transaction_type={self.transaction_type}, category={self.category}, user_id={self.user_id})"
+
+    def to_dict(self, depth=1):
+        if depth < 0:
+            return self.id
+        return {
+            "id": self.id,
+            "amount": float(self.amount),
+            "transaction_type": self.transaction_type.name,
+            "category": self.category.name,
+            "date": self.date.strftime("%d-%m-%Y %H:%M"),
+            "notes": self.notes,
+            "recurring": self.recurring,
+            "description": self.description,
+            "user_id": self.user_id,
+            "checking_account_id": self.checking_account_id,
+            "checking_account": self.checking_account.to_dict(depth - 1)
+            if depth > 0
+            else None,
+            "user": self.user.to_dict(depth - 1) if depth > 0 else None,
+        }
+from .checking_account_mdl import CheckingAccountMdl
+from .transaction_mdl import TransactionMdl
+from sqlalchemy import Column, ForeignKey, Integer, Numeric, String, Table, MetaData
+from sqlalchemy.orm import relationship
+from werkzeug.security import check_password_hash, generate_password_hash
+
+from models.base_mdl import BaseMdl
+
+metadata = MetaData()
+
+user_account_association = Table(
+    "user_account_association",
+    BaseMdl.metadata,
+    Column("user_id", Integer, ForeignKey("user.id")),
+    Column("account_id", Integer, ForeignKey("checking_account.id")),
+)
+
+
+class CheckingAccountMdl(BaseMdl):
+    """Checking account model."""
+
+    __tablename__ = "checking_account"
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String)
+    account_number = Column(String)
+    balance = Column(Numeric)
+    password_hash = Column(String)
+
+    users = relationship(
+        "UserMdl",
+        secondary=user_account_association,
+        back_populates="checking_accounts",
+    )
+    transactions = relationship("TransactionMdl", back_populates="checking_account")
+
+    def set_password(self, password):
+        """Hash the password and store the hash."""
+        self.password_hash = generate_password_hash(password)
+
+    def check_password(self, password):
+        """Check a password against the stored hash."""
+        return check_password_hash(self.password_hash, password)
+
+    def __repr__(self):
+        return f"CheckingAccount(id={self.id}, account_number={self.account_number}, balance={self.balance}"
+
+    def to_dict(self, depth=1):
+        if depth < 0:
+            return self.id
+        return {
+            "id": self.id,
+            "name": self.name,
+            "account_number": self.account_number,
+            "balance": float(self.balance),
+            "users": [user.to_dict(depth - 1) for user in self.users]
+            if depth > 0
+            else None,
+            "transactions": [
+                transaction.to_dict(depth - 1) for transaction in self.transactions
+            ]
+            if depth > 0
+            else None,
+        }
+from .bank.checking_account_mdl import CheckingAccountMdl
+from .bank.transaction_mdl import TransactionMdl
+from .base_mdl import BaseMdl
+from .user_mdl import UserMdl
+from textual import on
+from textual.screen import Screen
+from textual.widgets import Button, Input, Static
+
+from socket_client import SocketClient
+
+
+class RegisterForm(Screen):
+    CSS_PATH = "./css/user.css"
+
+    def __init__(self):
+        super().__init__()
+        self.socket_client = SocketClient()
+
+    @on(Button.Pressed, "#register_btn")
+    def return_to_main(self):
+        form_data = self.query(Input)
+        name = form_data[0].value
+        email = form_data[1].value
+        password = form_data[2].value
+
+        try:
+            response_dict = self.socket_client.send_request_and_get_response(
+                "/users/register",
+                "POST",
+                {"name": name, "email": email, "password": password},
+            )
+            if response_dict:
+                user_id = response_dict["user_id"]
+                self.dismiss(user_id)
+            else:
+                raise Exception("No response received from the server")
+        except Exception as e:
+            self.mount(Static(str(e)))
+
+    def compose(self):
+        yield Input(placeholder="Name")
+        yield Input(placeholder="Email")
+        yield Input(password=True, placeholder="Password")
+        yield Button("Register", id="register_btn")
+
+
+class LoginForm(Screen):
+    CSS_PATH = "./css/user.css"
+
+    def __init__(self):
+        super().__init__()
+        self.socket_client = SocketClient()
+
+    @on(Button.Pressed, "#login_btn")
+    def return_to_main(self):
+        form_data = self.query(Input)
+        email = form_data[0].value
+        password = form_data[1].value
+        print(f"Attempting to log in with email: {email}, password: {password}")
+
+        try:
+            response_dict = self.socket_client.send_request_and_get_response(
+                "/users/login", "POST", {"email": email, "password": password}
+            )
+            if response_dict:
+                user_id = response_dict["user_id"]
+                if isinstance(user_id, int):
+                    self.dismiss(user_id)
+                elif user_id == "false":
+                    raise Exception("Incorrect user")
+                else:
+                    raise Exception("Unexpected user_id value received from the server")
+            else:
+                raise Exception("No response received from the server")
+        except Exception as e:
+            self.mount(Static(str(e)))
+
+    def compose(self):
+        yield Input(placeholder="Email")
+        yield Input(password=True, placeholder="Password")
+        yield Button("Login", id="login_btn")
+from textual import on
+from textual.screen import Screen
+from textual.widgets import Button
+
+
+class WelcomingScreen(Screen):
+    CSS_PATH = "./css/user.css"
+
+    @on(Button.Pressed, "#register")
+    def show_register(self):
+        self.dismiss("register")
+
+    @on(Button.Pressed, "#login")
+    def show_login(self):
+        self.dismiss("login")
+
+    def compose(self):
+        yield Button("Register", variant="primary", id="register")
+        yield Button("Login", variant="primary", id="login")
+from textual import on
+from textual.screen import Screen
+from textual.widgets import Button, Input, Static
+
+from services.checking_account_svc import CheckingAccountSvc
+from services.user_svc import UserSvc
+from socket_client import SocketClient
+
+account_service = CheckingAccountSvc()
+user_service = UserSvc()
+
+
+class CreateBankScreen(Screen):
+    def __init__(self, user_id: int):
+        super().__init__()
+        self.user_id = user_id
+        self.socket_client = SocketClient()
+
+    @on(Button.Pressed, "#create_bank")
+    def create_bank(self):
+        form_data = self.query(Input)
+        bank_name = form_data[0].value
+        bank_balance = form_data[1].value
+
+        try:
+            response_dict = self.socket_client.send_request_and_get_response(
+                "/users/create_personal_bank",
+                "POST",
+                {
+                    "bank_name": bank_name,
+                    "bank_balance": bank_balance,
+                    "user_id": self.user_id,
+                    "password": "password",
+                    "personal": True,
+                },
+            )
+
+            if response_dict:
+                self.dismiss(True)
+        except Exception as e:
+            self.mount(Static(str(e)))
+
+    def compose(self):
+        yield Input(placeholder="Bank Name", id="bank_name")
+        yield Input(placeholder="Initial Balance", id="bank_balance")
+        yield Button("Create Personal Bank", variant="primary", id="create_bank")
+
+
+class CreateVaquitaScreen(Screen):
+    def __init__(self, user_id):
+        super().__init__()
+        self.user_id = user_id
+        self.socket_client = SocketClient()
+
+    @on(Button.Pressed, "#create_vaquita")
+    def create_vaquita(self):
+        form_data = self.query(Input)
+        bank_name = form_data[0].value
+        bank_balance = form_data[1].value
+        password = form_data[2].value
+
+        response_dict = self.socket_client.send_request_and_get_response(
+            "/users/create_vaquita",
+            "POST",
+            {
+                "bank_name": bank_name,
+                "bank_balance": bank_balance,
+                "user_id": self.user_id,
+                "password": password,
+                "personal": False,
+            },
+        )
+        if response_dict:
+            self.dismiss(True)
+        else:
+            raise Exception("No response received from the server")
+
+    def compose(self):
+        yield Input(placeholder="Bank Name", id="bank_name")
+        yield Input(placeholder="Initial Balance", id="bank_balance")
+        yield Input(placeholder="Password", id="password", password=True)
+        yield Button("Create Vaquita", variant="primary", id="create_vaquita")
+
+
+class JoinVaquitaScreen(Screen):
+    def __init__(self, user_id):
+        super().__init__()
+        self.user_id = user_id
+        self.socket_client = SocketClient()
+
+    @on(Button.Pressed, "#join_vaquita")
+    def join_vaquita(self):
+        form_data = self.query(Input)
+        account_number = form_data[0].value
+        password = form_data[1].value
+
+        try:
+            response_dict = self.socket_client.send_request_and_get_response(
+                "/users/join_vaquita",
+                "POST",
+                {
+                    "user_id": self.user_id,
+                    "vaquita_number": account_number,
+                    "password": password,
+                },
+            )
+            if response_dict and response_dict["result"]:
+                self.dismiss(True)
+            else:
+                self.mount(Static("Error joining vaquita"))
+        except Exception as e:
+            self.mount(Static(str(e)))
+
+    def compose(self):
+        yield Input(placeholder="Account number", id="account_number")
+        yield Input(placeholder="Password", id="password", password=True)
+        yield Button("Join Vaquita", variant="primary", id="join_vaquita")
+
+
+class ConfigCheckingAccountScreen(Screen):
+    CSS_PATH = "./css/config_checking_account.css"
+
+    def __init__(self, user_id: int):
+        super().__init__()
+        self.user_id = user_id
+
+    @on(Button.Pressed, "#create_bank")
+    def show_create_bank(self):
+        def check_bank_created(created):
+            if created:
+                self.dismiss(self.user_id)
+            else:
+                self.mount(Static("Error creating bank"))
+
+        self.app.push_screen(CreateBankScreen(self.user_id), check_bank_created)
+
+    @on(Button.Pressed, "#create_vaquita")
+    def show_create_vaquita(self):
+        def check_vaquita_created(created):
+            if created:
+                self.dismiss(self.user_id)
+            else:
+                self.mount(Static("Error creating vaquita"))
+
+        self.app.push_screen(CreateVaquitaScreen(self.user_id), check_vaquita_created)
+
+    @on(Button.Pressed, "#join_vaquita")
+    def show_join_vaquita(self):
+        def check_vaquita_joined(created):
+            if created:
+                self.dismiss(self.user_id)
+            else:
+                self.mount(Static("Error creating vaquita"))
+
+        self.app.push_screen(JoinVaquitaScreen(self.user_id), check_vaquita_joined)
+
+    def compose(self):
+        yield Static(
+            "Welcome to Vaquita! Please create a bank or join an existing one. user id: "
+            + str(self.user_id)
+        )
+        yield Button("Create personal Bank", variant="primary", id="create_bank")
+        yield Button("Create Vaquita", variant="primary", id="create_vaquita")
+        yield Button("Join Vaquita", variant="primary", id="join_vaquita")
+from textual import on
+from textual.app import ComposeResult
+from textual.reactive import reactive
+from textual.screen import Screen
+from textual.widget import Widget
+from textual.widgets import Button, Input, Static, Tab, Tabs, Select
+
+from enum import Enum as PyEnum
+from socket_client import SocketClient
+from terminal_ui.config_checking_account import ConfigCheckingAccountScreen
+
+
+socket_client = SocketClient()
+
+
+class TransactionCategory(PyEnum):
+    FOOD = "Food"
+    RENT = "Rent"
+    SERVICES = "Services"
+    TRANSPORTATION = "Transportation"
+    UTILITIES = "Utilities"
+    HEALTH = "Health"
+    INSURANCE = "Insurance"
+    PERSONAL = "Personal"
+    ENTERTAINMENT = "Entertainment"
+    EDUCATION = "Education"
+    SAVINGS = "Savings"
+    SALARY = "Salary"
+
+
+class TransactionType(PyEnum):
+    INCOME = "Income"
+    EXPENSE = "Expense"
+    TRANSFER = "Transfer"
+
+
+class CheckingAccountTabs(Widget):
+    def __init__(self, checking_account_list: list):
+        super().__init__()
+        self.checking_account_list = checking_account_list
+
+    def compose(self):
+        tab_list = []
+        if self.checking_account_list:
+            for account in self.checking_account_list:
+                tab = Tab(label=account["name"], id="id" + str(account["id"]))
+                tab_list.append(tab)
+        else:
+            tab_list.append(Tab("No accounts found"))
+
+        yield Tabs(*tab_list)
+
+
+class CheckingAccountTransactions(Widget):
+    transactions_list = reactive([], recompose=True)
+
+    def __init__(self, transaction_list_initial):
+        super().__init__()
+        self.transactions_list_initial = transaction_list_initial
+
+    def compose(self):
+        for transaction in self.transactions_list_initial:
+            yield Static(
+                str(
+                    str(transaction["date"])
+                    + " "
+                    + str(transaction["description"])
+                    + " "
+                    + str(transaction["amount"])
+                )
+            )
+
+
+class AddTransactionScreen(Screen):
+    def __init__(self, user_id: int, account_id: int):
+        super().__init__()
+        self.category = None
+        self.user_id = user_id
+        self.account_id = account_id
+        self.transaction_types = [(t.name, t.name) for t in TransactionType]
+        self.transaction_categories = [(c.name, c.name) for c in TransactionCategory]
+
+        self.transaction_categorie = None
+        self.transaction_type = None
+
+    @on(Button.Pressed, "#add_transaction")
+    def add_transaction(self, event):
+        form_data = self.query(Input)
+        amount = form_data[0].value
+        notes = ""
+        description = form_data[1].value
+
+        body = {
+            "account_id": self.account_id,
+            "amount": amount,
+            "transaction_type": self.transaction_type,
+            "category": self.category,
+            "notes": notes,
+            "user_id": self.user_id,
+            "description": description,
+        }
+
+        socket_client.send_request_and_get_response(
+            "/checking_accounts/transactions/add", method="POST", body=body
+        )
+
+        self.dismiss(True)
+
+    @on(Select.Changed, "#transaction_types")
+    def select_transaction_type(self, event):
+        self.transaction_type = event.value
+
+    @on(Select.Changed, "#transaction_categories")
+    def select_transaction_category(self, event):
+        self.category = event.value
+
+    def compose(self) -> ComposeResult:
+        yield Static("Add transaction")
+        yield Input(placeholder="Amount", id="amount")
+        yield Select(self.transaction_types, id="transaction_types")
+        yield Select(self.transaction_categories, id="transaction_categories")
+        yield Input(placeholder="Description", id="description")
+        yield Button("Add transaction", id="add_transaction")
+
+
+class CheckingAccountScreen(Screen):
+    refresh_transactions = reactive(False, recompose=True)
+
+    def __init__(self, response_dict=None, user_id=None):
+        super().__init__()
+        self.user_id = user_id
+        if not response_dict:
+            response_dict = socket_client.send_request_and_get_response(
+                f"/users/accounts/{self.user_id}", method="GET"
+            )
+        self.user_checking_accounts = response_dict
+        self.transactions_list = self.user_checking_accounts[0]["transactions"]
+        self.current_account = self.user_checking_accounts[0]
+        socket_client.add_update_handler(self.handle_update)
+
+    def handle_update(self, data):
+        if data.get("type") == "transaction_update":
+            self.transactions_list.append(data["transaction"])
+            self.refresh_transactions = not self.refresh_transactions
+
+    @on(Button.Pressed, "#add_transaction")
+    def add_transaction(self):
+        def reload_transactions(transaction_created):
+            response = socket_client.send_request_and_get_response(
+                f'/checking_accounts/transactions/{self.current_account["id"]}',
+                method="GET",
+            )
+            self.transactions_list = response
+            self.refresh_transactions = not self.refresh_transactions
+
+        self.app.push_screen(
+            AddTransactionScreen(self.user_id, self.current_account["id"]),
+            callback=reload_transactions,
+        )
+
+    @on(Button.Pressed, "#add_checking_account")
+    def on_add_checking_account_pressed(self):
+        self.app.push_screen(
+            ConfigCheckingAccountScreen(self.user_id),
+            callback=CheckingAccountScreen(user_id=self.user_id),
+        )
+
+    def compose(self) -> ComposeResult:
+        yield CheckingAccountTabs(self.user_checking_accounts)
+        yield Button("+", variant="success", id="add_checking_account")
+        yield Static("Account number: " + str(self.current_account["account_number"]))
+        yield Static("Balance: " + str(self.current_account["balance"]))
+        yield CheckingAccountTransactions(self.transactions_list)
+        yield Button("Add transaction", id="add_transaction")
+import plotext as plt
+from rich.console import Console
+from rich.prompt import Prompt
+from textual.app import App
+from textual.widgets import Placeholder
+
+from vaquita.statistics import StatisticsSvc
+
+
+class StatisticsApp(App):
+    async def on_mount(self):
+        await self.view.dock(Placeholder(), edge="left", size=30)
+
+    async def on_start(self):
+        console = Console()
+        statistics_service = (
+            StatisticsSvc()
+        )  # Aquí deberías pasar tu repositorio de estadísticas
+
+        while True:
+            command = Prompt.choices
+            if command == "quit":
+                break
+            else:
+                if command == "pie_chart":
+                    categories = [
+                        "total_food",
+                        "total_rent",
+                        "total_services",
+                        "total_transportation",
+                        "total_utilities",
+                        "total_health",
+                        "total_insurance",
+                        "total_personal",
+                        "total_entertainment",
+                        "total_education",
+                        "total_savings",
+                        "total_salary",
+                    ]
+                    data = [
+                        statistics_service.get_metric_data(category)
+                        for category in categories
+                    ]
+                    plt.pie(data, labels=categories)
+                    plt.show()
+                elif command == "line_graph":
+                    data = statistics_service.get_line_graph_data()
+                    plt.plot(data)
+                    plt.show()
+
+
+StatisticsApp.run()
+import multiprocessing
+
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+
+from models import Base
+from statistics import StatisticsSvc, StatisticsRepo
+
+
+def statistics_process(queue, event):
+    # Set up the database session
+    engine = create_engine("sqlite:///statistics.db")
+    Base.metadata.create_all(engine)
+    Session = sessionmaker(bind=engine)
+    session = Session()
+
+    # Set up the statistics service and repository
+    statistics_repo = StatisticsRepo(session)
+    statistics_service = StatisticsSvc(statistics_repo)
+
+    while True:
+        event.wait()  # Wait for the event to be set
+        event.clear()  # Clear the event
+        message = queue.get()
+        if message == "data_saved":
+            # Perform the calculations
+            totals = statistics_service.calculate_totals()
+            averages = statistics_service.calculate_averages()
+            largest = statistics_service.calculate_largest()
+            category_percentages = statistics_service.calculate_category_percentages()
+
+            # Print the results (you can replace this with whatever you want to do with the results)
+            print("Totals:", totals)
+            print("Averages:", averages)
+            print("Largest:", largest)
+            print("Category percentages:", category_percentages)
+
+
+if __name__ == "__main__":
+    # Create the queue and the event
+    queue = multiprocessing.Queue()
+    event = multiprocessing.Event()
+
+    # Start the statistics process
+    p = multiprocessing.Process(target=statistics_process, args=(queue, event))
+    p.start()
+
+    # Simulate the server saving data in the database and informing the statistics process
+    queue.put("data_saved")
+    event.set()  # Set the event
+
+    # Wait for the statistics process to finish (in a real application, you would probably want to keep the server running indefinitely)
+    p.join()
+from textual.app import App, ComposeResult
+from textual.widgets import Header, Footer, Static
+
+from database.database_manager import DatabaseManager
+from services.checking_account_svc import CheckingAccountSvc
+from services.user_svc import UserSvc
+from socket_client import SocketClient
+from terminal_ui.checking_account_tui import CheckingAccountScreen
+from terminal_ui.config_checking_account import ConfigCheckingAccountScreen
+from terminal_ui.user_tui import RegisterForm, LoginForm
+from terminal_ui.welcoming_tui import WelcomingScreen
+
+db = DatabaseManager()
+
+checking_account_service = CheckingAccountSvc()
+
+user_service = UserSvc()
+
+STATUS = ""
+MESSAGE = ""
+
+
+class VaquitaApp(App):
+    """
+    VaquitaApp is a textual app that displays a custom welcome message when started.
+    """
+
+    client = SocketClient()
+    user_id = None
+
+    def on_mount(self):
+        def display_main_account(user_id):
+            self.push_screen(CheckingAccountScreen(response_dict=None, user_id=user_id))
+
+        def display_main_menu(user_id):
+            response_dict = self.client.send_request_and_get_response(
+                "/users/accounts/" + str(user_id), method="GET"
+            )
+            if response_dict:
+                self.push_screen(CheckingAccountScreen(response_dict, user_id))
+            else:
+                self.push_screen(
+                    ConfigCheckingAccountScreen(user_id), display_main_account
+                )
+
+        def check_form(form):
+            if form == "register":
+                self.push_screen(screen=RegisterForm(), callback=display_main_menu)
+            elif form == "login":
+                self.push_screen(screen=LoginForm(), callback=display_main_menu)
+
+        self.push_screen(WelcomingScreen(), check_form)
+
+    def compose(self) -> ComposeResult:
+        yield Header()
+        yield Static("Welcome to Vaquita!")
+        yield Static(f"Readyz check: {STATUS} - {MESSAGE}")
+        yield Footer()
+
+
+app = VaquitaApp()
+app.run()
+from logging import Logger
+from config.logger_config import setup_custom_logger
+from database.database_manager import DatabaseManager
+
+READYZ_FAIL_STATUS = 500
+READYZ_OK_STATUS = 200
+PATH_NOT_FOUND_STATUS = 404
+
+LOG: Logger = setup_custom_logger(__name__)
+
+
+def send_response(handler, status_code, body=b""):
+    handler.send_response(status_code, "OK" if status_code == 200 else "Failed")
+    handler.send_header("Content-Type", "application/json")
+    handler.send_header("Content-Length", str(len(body)))
+    handler.end_headers()
+    if body:
+        handler.wfile.write(body)
+        handler.wfile.flush()
+
+
+class ReadyzController:
+    def do_GET(self, handler, path, headers, body):
+        LOG.info("Readyz controller")
+        if handler.path == "/readyz":
+            self.handle_readyz(handler)
+        else:
+            send_response(handler, PATH_NOT_FOUND_STATUS)
+
+    def handle_readyz(self, handler):
+        LOG.info("Checking database connection...")
+        db_manager = DatabaseManager()
+        if db_manager.check_connection():
+            send_response(handler, READYZ_OK_STATUS, b"OK")
+            LOG.debug("Database connection successful")
+        else:
+            send_response(handler, READYZ_FAIL_STATUS, b"Database connection failed")
+            LOG.error("Database connection failed")
+# checking_account_controller.py
+import json
+from services.checking_account_svc import CheckingAccountSvc
+
+
+def parse_json(body):
+    return json.loads(body) if body else None
+
+
+def send_json_response(handler, data):
+    response_body = json.dumps(data)
+    handler.send_response(200, "OK", response_body)
+
+
+def notify_clients(account_id, transaction):
+    from server import MainServer
+    for client_info in MainServer.connected_clients.values():
+        if account_id in client_info["accounts"]:
+            response = json.dumps({
+                "type": "transaction_update",
+                "account_id": account_id,
+                "transaction": transaction.to_dict(),
+            }).encode("utf-8") + b"\n"
+
+            try:
+                client_info["handler"].wfile.write(response)
+                client_info["handler"].wfile.flush()
+                print(f"Sent update to client {client_info['ip']}: {response}")
+            except Exception as e:
+                print(f"Failed to send update to client {client_info['ip']}: {e}")
+
+
+
+class CheckingAccountController:
+    def __init__(self):
+        self.checking_account_svc = CheckingAccountSvc()
+
+    def do_GET(self, handler, path, headers, body):
+        if path.startswith("/checking_accounts/transactions"):
+            self.handle_get_transactions(handler, path)
+        else:
+            handler.send_response(404)
+            handler.end_headers()
+
+    def do_POST(self, handler, path, headers, body):
+        if path == "/checking_accounts/transactions/add":
+            self.handle_add_transaction(handler, body)
+        else:
+            handler.send_response(404)
+            handler.end_headers()
+
+    def handle_add_transaction(self, handler, body):
+        data = parse_json(body)
+        if data:
+            try:
+                transaction = self.checking_account_svc.add_transaction(
+                    account_id=data["account_id"],
+                    amount=data["amount"],
+                    transaction_type=data["transaction_type"],
+                    category=data["category"],
+                    notes=data.get("notes", ""),
+                    recurring=data.get("recurring", False),
+                    description=data["description"],
+                    user_id=data["user_id"],
+                )
+                send_json_response(
+                    handler, {"message": "Transaction added successfully"}
+                )
+                notify_clients(data["account_id"], transaction)
+            except ValueError as e:
+                send_json_response(handler, {"error": str(e)})
+            except Exception as e:
+                send_json_response(handler, {"error": "Internal server error"})
+                raise e
+        else:
+            send_json_response(handler, {"error": "Invalid data"})
+
+    def handle_get_transactions(self, handler, path):
+        try:
+            account_id = int(path.split("/")[-1])
+            transactions = self.checking_account_svc.get_transactions(account_id)
+            transactions_dict = [transaction.to_dict() for transaction in transactions]
+            send_json_response(handler, transactions_dict)
+        except ValueError as e:
+            send_json_response(handler, {"error": str(e)})
+        except Exception as e:
+            send_json_response(handler, {"error": "Internal server error"})
+            raise e
+import json
+import uuid
+
+
+from services.user_svc import UserSvc
+
+
+def parse_json(body):
+    return json.loads(body) if body else None
+
+
+def send_json_response(handler, data):
+    response_body = json.dumps(data)
+    handler.send_response(200, "OK", response_body)
+
+
+class UserController:
+    def __init__(self):
+        self.user_svc = UserSvc()
+
+    def do_POST(self, handler, path, headers, body):
+        if path == "/users/register":
+            self.handle_register(handler, body)
+        elif path == "/users/login":
+            self.handle_login(handler, body)
+        elif path == "/users/create_personal_bank":
+            self.handle_create_personal_bank(handler, body)
+        elif path == "/users/create_vaquita":
+            self.handle_create_vaquita(handler, body)
+        elif path == "/users/join_vaquita":
+            self.handle_join_vaquita(handler, body)
+        else:
+            handler.send_response(404, "Not Found")
+            handler.end_headers()
+
+    def do_GET(self, handler, path, headers, body):
+        if path == "/users":
+            self.handle_get_all_users(handler)
+        elif path.startswith("/users/accounts/"):
+            self.handle_get_user_accounts(handler, path)
+        else:
+            handler.send_response(404, "Not Found")
+            handler.end_headers()
+
+    def handle_register(self, handler, body):
+        data = parse_json(body)
+        if data:
+            user_id = self.user_svc.register(
+                data["name"], data["email"], data["password"]
+            )
+            send_json_response(handler, {"user_id": user_id})
+
+    def handle_create_vaquita(self, handler, body):
+        data = parse_json(body)
+        if data:
+            self.user_svc.create_vaquita(
+                data["bank_name"],
+                data["bank_balance"],
+                data["user_id"],
+                data["password"],
+            )
+            send_json_response(handler, {"message": "Vaquita created"})
+
+    def handle_join_vaquita(self, handler, body):
+        data = parse_json(body)
+        if data:
+            result = self.user_svc.join_vaquita(
+                data["user_id"], data["vaquita_number"], data["password"]
+            )
+            send_json_response(handler, {"result": result})
+
+    def handle_login(self, handler, body):
+        data = parse_json(body)
+        if data:
+            user_id = self.user_svc.login(data["email"], data["password"])
+            send_json_response(handler, {"user_id": user_id})
+
+    def handle_get_all_users(self, handler):
+        users = self.user_svc.get_all_users()
+        send_json_response(handler, users)
+
+    def handle_create_personal_bank(self, handler, body):
+        data = parse_json(body)
+        if data:
+            self.user_svc.create_personal_bank(
+                data["bank_name"],
+                data["bank_balance"],
+                data["user_id"],
+                data["password"],
+            )
+            send_json_response(handler, {"message": "Bank created"})
+
+
+    def handle_get_user_accounts(self, handler, path):
+        from server import MainServer
+        user_id = int(path.split("/")[-1])
+        accounts = self.user_svc.get_user_accounts(user_id)
+        accounts_dict = [account.to_dict(depth=1) for account in accounts]
+
+        accounts_set = set()
+        for account in accounts_dict:
+            account_id = account["id"]
+            accounts_set.add(account_id)
+
+        unique_id = uuid.uuid4()  # Generate a unique UUID
+        wrapper = {
+            "user_id": user_id,
+            "accounts": accounts_set,
+            "ip": handler.client_address[0],
+            "handler": handler,
+        }
+        MainServer.connected_clients[unique_id] = wrapper  # Use UUID as a key
+        print(f"Connected clients: {MainServer.connected_clients}")
+        send_json_response(handler, accounts_dict)
+from models.user_mdl import UserMdl
+from repositories.user_repo import UserRepo
+from services.checking_account_svc import CheckingAccountSvc
+
+checking_account_service = CheckingAccountSvc()
+
+
+class UserSvc:
+    def __init__(self):
+        self.user_repo = UserRepo()
+
+    def register(self, name, email, password):
+        user = UserMdl(name=name, email=email)
+        user.set_password(password)
+        self.user_repo.add(user)
+        new_user = self.user_repo.get_by_email(email)
+        return new_user.id
+
+    def create_vaquita(self, bank_name, bank_balance, user_id, password):
+        user = self.user_repo.get(user_id)
+        checking_account_service.create_account(
+            bank_name, bank_balance, user, password, personal=False
+        )
+
+    def join_vaquita(self, user_id, vaquita_number, password):
+        user = self.user_repo.get(user_id)
+        return checking_account_service.join_account(vaquita_number, user, password)
+
+    def login(self, email, password):
+        user = self.user_repo.get_by_email(email)
+        if user is None:
+            return False
+
+        if user.check_password(password):
+            return user.id
+
+        return False
+
+    def get_all_users(self):
+        return self.user_repo.get_all()
+
+    def get_user_accounts(self, user_id):
+        user = self.user_repo.get(user_id)
+        return user.checking_accounts
+
+    def create_personal_bank(
+        self, bank_name, bank_balance, user_id, password, personal=True
+    ):
+        user = self.user_repo.get(user_id)
+        checking_account_service.create_account(
+            bank_name, bank_balance, user, password, personal
+        )
+import socketserver
+import threading
+
+
+class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
+    def handle(self):
+        while True:
+            data = str(self.request.recv(1024), "utf-8")
+            if data == "create":
+                response = "Creating a wallet..."
+                # Add your wallet creation logic here
+            elif data == "join":
+                response = "Joining a wallet..."
+                # Add your wallet joining logic here
+            else:
+                response = 'Invalid option. Please send "create" or "join".'
+            self.request.sendall(bytes(response, "utf-8"))
+
+
+class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
+    pass
+
+
+def start_server(host, port):
+    server = ThreadedTCPServer((host, port), ThreadedTCPRequestHandler)
+    server_thread = threading.Thread(target=server.serve_forever)
+    server_thread.daemon = True
+    server_thread.start()
+    print(f"Server started on {host}:{port}")
+
+
+if __name__ == "__main__":
+    import sys
+
+    HOST, PORT = "localhost", int(sys.argv[1])
+    start_server(HOST, PORT)
+import random
+import string
+import json
+from datetime import datetime
+
+from models.bank.checking_account_mdl import CheckingAccountMdl
+from models.bank.transaction_mdl import (
+    TransactionMdl,
+    TransactionType,
+    TransactionCategory,
+)
+from repositories.checking_account_repo import CheckingAccountRepo
+from repositories.transaction_repo import TransactionRepo
+
+
+class CheckingAccountSvc:
+    def __init__(self):
+        self.checking_account_repo = CheckingAccountRepo()
+        self.transaction_repo = TransactionRepo()
+
+    def get_balance(self, account_name):
+        account = self.checking_account_repo.get_by_account_name(account_name)
+        return account.get_balance()
+
+    def add_transaction(
+        self,
+        account_id,
+        amount,
+        transaction_type,
+        category,
+        notes,
+        recurring,
+        description,
+        user_id,
+    ):
+        account = self.checking_account_repo.get(account_id)
+        if account is None:
+            raise ValueError("Account not found for id: " + str(account_id))
+        transaction = TransactionMdl(
+            amount=amount,
+            transaction_type=TransactionType[transaction_type],
+            category=TransactionCategory[category],
+            date=datetime.now(),
+            notes=notes,
+            recurring=recurring,
+            description=description,
+            user_id=user_id,
+            checking_account_id=account.id,
+        )
+        self.transaction_repo.add(transaction)
+        account.transactions.append(transaction)
+        self.checking_account_repo.update(account)
+        return transaction
+
+    def get_transactions(self, account_id):
+        account = self.checking_account_repo.get(account_id)
+        return account.transactions
+
+    def create_account(self, name, balance, user, password, personal=True):
+        new_account = CheckingAccountMdl()
+        new_account.name = name
+        if not personal:
+            new_account.account_number = "#" + "".join(
+                random.choice(string.ascii_uppercase + string.digits) for _ in range(5)
+            )
+            new_account.set_password(password)
+        new_account.balance = balance
+        new_account.users = [user]
+        self.checking_account_repo.add(new_account)
+
+    def join_account(self, account_number, user, account_password):
+        account = self.checking_account_repo.get_by_account_number(account_number)
+        if account is None or not account.check_password(account_password):
+            return False
+        account.users.append(user)
+        self.checking_account_repo.update(account)
+        return True
+class StatisticsSvc:
+    def __init__(self, statistics_repo):
+        self.statistics_repo = statistics_repo
+
+    def calculate_totals(self):
+        stats = self.statistics_repo.get_all()
+        totals = {
+            "total_income": sum(stat.total_income for stat in stats),
+            "total_expense": sum(stat.total_expense for stat in stats),
+            # Add more totals as needed
+        }
+        return totals
+
+    def calculate_averages(self):
+        stats = self.statistics_repo.get_all()
+        averages = {
+            "average_transaction_value": sum(
+                stat.average_transaction_value for stat in stats
+            )
+            / len(stats),
+            "monthly_expense_average": sum(
+                stat.monthly_expense_average for stat in stats
+            )
+            / len(stats),
+            # Add more averages as needed
+        }
+        return averages
+
+    def calculate_largest(self):
+        stats = self.statistics_repo.get_all()
+        largest = {
+            "largest_expense": max(stat.largest_expense for stat in stats),
+            "largest_income": max(stat.largest_income for stat in stats),
+            # Add more largest values as needed
+        }
+        return largest
+
+    def calculate_category_percentages(self):
+        stats = self.statistics_repo.get_all()
+        category_percentages = {
+            "expense_category_percentage": self._calculate_percentage_for_each_category(
+                stats, "expense"
+            ),
+            "income_category_percentage": self._calculate_percentage_for_each_category(
+                stats, "income"
+            ),
+            # Add more category percentages as needed
+        }
+        return category_percentages
+
+    def _calculate_percentage_for_each_category(self, stats, category):
+        total = sum(getattr(stat, f"total_{category}") for stat in stats)
+        percentages = {
+            f"total_{category}": getattr(stat, f"total_{category}") / total * 100
+            for stat in stats
+        }
+        return percentages
