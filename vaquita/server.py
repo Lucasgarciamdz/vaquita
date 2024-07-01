@@ -25,9 +25,8 @@ logging.basicConfig(
 
 
 class MainServer(socketserver.StreamRequestHandler):
-    client_ips = set()
-    connected_clients = {}
     client_count = 0
+    connected_clients = {}
 
     def setup(self):
         super().setup()
@@ -37,9 +36,7 @@ class MainServer(socketserver.StreamRequestHandler):
             "/checking_accounts": CheckingAccountController(),
         }
         client_ip = self.client_address[0]
-        self.accounts = set()
         MainServer.client_count += 1
-        MainServer.client_ips.add(client_ip)
         logging.info(
             f"Client connected: {client_ip}. Total connected clients: {MainServer.client_count}"
         )
@@ -54,15 +51,9 @@ class MainServer(socketserver.StreamRequestHandler):
         super().finish()
         client_ip = self.client_address[0]
         MainServer.client_count -= 1
-        MainServer.client_ips.remove(client_ip)
         logging.info(
-            f"Client disconnected: {client_ip}. Total connected clients: {MainServer.connected_clients}"
+            f"Client disconnected: {client_ip}. Total connected clients: {MainServer.client_count}"
         )
-        for account_id in self.accounts:
-            if account_id in MainServer.connected_clients:
-                MainServer.connected_clients[account_id].remove(self)
-                if not MainServer.connected_clients[account_id]:
-                    del MainServer.connected_clients[account_id]
 
     def handle(self):
         # Start a new thread for reading messages

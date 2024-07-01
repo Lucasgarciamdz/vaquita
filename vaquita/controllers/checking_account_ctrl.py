@@ -12,30 +12,23 @@ def send_json_response(handler, data):
     handler.send_response(200, "OK", response_body)
 
 
-# server.py
-def notify_clients(handler, account_id, transaction):
+def notify_clients(account_id, transaction):
     from server import MainServer
+    for client_info in MainServer.connected_clients.values():
+        if account_id in client_info["accounts"]:
+            response = json.dumps({
+                "type": "transaction_update",
+                "account_id": account_id,
+                "transaction": transaction.to_dict(),
+            }).encode("utf-8") + b"\n"
 
-    if account_id in MainServer.connected_clients:
-        for client in MainServer.connected_clients[account_id]:
-            response = (
-                json.dumps(
-                    {
-                        "type": "transaction_update",
-                        "account_id": account_id,
-                        "transaction": transaction.to_dict(),
-                    }
-                ).encode("utf-8")
-                + b"\n"
-            )
             try:
-                client.wfile.write(response)
-                client.wfile.flush()
-                print(f"Sent update to client {client.client_address[0]}: {response}")
+                client_info["handler"].wfile.write(response)
+                client_info["handler"].wfile.flush()
+                print(f"Sent update to client {client_info['ip']}: {response}")
             except Exception as e:
-                print(
-                    f"Failed to send update to client {client.client_address[0]}: {e}"
-                )
+                print(f"Failed to send update to client {client_info['ip']}: {e}")
+
 
 
 class CheckingAccountController:
@@ -73,7 +66,7 @@ class CheckingAccountController:
                 send_json_response(
                     handler, {"message": "Transaction added successfully"}
                 )
-                notify_clients(handler, data["account_id"], transaction)
+                notify_clients(data["account_id"], transaction)
             except ValueError as e:
                 send_json_response(handler, {"error": str(e)})
             except Exception as e:

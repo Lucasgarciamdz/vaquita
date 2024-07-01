@@ -36,7 +36,6 @@ class VaquitaApp(App):
             response_dict = self.client.send_request_and_get_response(
                 "/users/accounts/" + str(user_id), method="GET"
             )
-            print(f"Response dict: {response_dict}")
             if response_dict:
                 self.push_screen(CheckingAccountScreen(response_dict, user_id))
             else:

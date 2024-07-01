@@ -3,7 +3,6 @@ from textual.app import ComposeResult
 from textual.reactive import reactive
 from textual.screen import Screen
 from textual.widget import Widget
-from textual.containers import ScrollableContainer
 from textual.widgets import Button, Input, Static, Tab, Tabs, Select
 
 from enum import Enum as PyEnum
@@ -140,10 +139,7 @@ class CheckingAccountScreen(Screen):
         socket_client.add_update_handler(self.handle_update)
 
     def handle_update(self, data):
-        if (
-            data.get("type") == "transaction_update"
-            and data.get("account_id") == self.current_account["id"]
-        ):
+        if data.get("type") == "transaction_update":
             self.transactions_list.append(data["transaction"])
             self.refresh_transactions = not self.refresh_transactions
 

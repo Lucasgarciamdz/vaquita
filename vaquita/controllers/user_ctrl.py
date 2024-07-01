@@ -1,4 +1,7 @@
 import json
+import uuid
+
+
 from services.user_svc import UserSvc
 
 
@@ -87,19 +90,25 @@ class UserController:
             )
             send_json_response(handler, {"message": "Bank created"})
 
+
     def handle_get_user_accounts(self, handler, path):
         from server import MainServer
-
         user_id = int(path.split("/")[-1])
         accounts = self.user_svc.get_user_accounts(user_id)
         accounts_dict = [account.to_dict(depth=1) for account in accounts]
 
+        accounts_set = set()
         for account in accounts_dict:
             account_id = account["id"]
-            handler.accounts.add(account_id)
-            if account_id not in MainServer.connected_clients:
-                MainServer.connected_clients[account_id] = []
-            if handler not in MainServer.connected_clients[account_id]:
-                MainServer.connected_clients[account_id].append(handler)
+            accounts_set.add(account_id)
 
+        unique_id = uuid.uuid4()  # Generate a unique UUID
+        wrapper = {
+            "user_id": user_id,
+            "accounts": accounts_set,
+            "ip": handler.client_address[0],
+            "handler": handler,
+        }
+        MainServer.connected_clients[unique_id] = wrapper  # Use UUID as a key
+        print(f"Connected clients: {MainServer.connected_clients}")
         send_json_response(handler, accounts_dict)

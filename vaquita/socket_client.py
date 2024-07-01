@@ -6,10 +6,7 @@ import uuid
 from queue import Queue, Empty
 import logging
 
-logging.basicConfig(
-    level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s"
-)
-
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 
 class SocketClient:
     _instance = None
@@ -30,15 +27,14 @@ class SocketClient:
         self.connect()
         self.lock = threading.Lock()
         self.response_queues = {}
-        self.listener_thread = threading.Thread(
-            target=self.listen_for_updates, daemon=True
-        )
+        self.listener_thread = threading.Thread(target=self.listen_for_updates, daemon=True)
         self.listener_thread.start()
         self.update_handlers = []
+        self.partial_data = ""
 
     def connect(self):
         self.sock.connect((self.host, self.port))
-        logging.info(f"Connected to server at {self.host}:{self.port}")
+        print(f"Connected to server at {self.host}:{self.port}")
 
     def send_request_and_get_response(self, path, method="POST", body=None):
         request_id = str(uuid.uuid4())
@@ -53,12 +49,12 @@ class SocketClient:
 
         with self.lock:
             self.sock.sendall(request.encode("utf-8"))
-            logging.debug(f"Sent request: {request}")
+            print(f"Sent request: {request}")
 
         try:
             response = response_queue.get(timeout=20)  # Increase timeout to 20 seconds
         except Empty:
-            logging.error("Request timed out")
+            print("Request timed out")
             return None
         finally:
             del self.response_queues[request_id]
@@ -68,19 +64,30 @@ class SocketClient:
     def listen_for_updates(self):
         while True:
             try:
-                data_chunk = self.sock.recv(8192).decode("utf-8")
+                data_chunk = self.sock.recv(16384).decode("utf-8")
                 if data_chunk:
-                    logging.debug(f"Received data chunk: {data_chunk}")
-                    header_part, body_part = data_chunk.split("\r\n\r\n", 1)
-                    if "200" not in header_part:
-                        raise Exception("Non-200 response")
-                    body = json.loads(body_part)
-                    self.handle_data(body)
+                    self.partial_data += data_chunk
+                    while "\r\n\r\n" in self.partial_data:
+                        headers, self.partial_data = self.partial_data.split("\r\n\r\n", 1)
+                        if "Content-Length" in headers:
+                            content_length = int(headers.split("Content-Length: ")[1].split("\r\n")[0])
+                            if len(self.partial_data) >= content_length:
+                                message = self.partial_data[:content_length]
+                                self.partial_data = self.partial_data[content_length:]
+                                if message:
+                                    self.process_message(message)
             except Exception as e:
-                logging.error(f"Error in listener thread: {e}")
+                print(f"Error in listener thread: {e}")
+
+    def process_message(self, message):
+        try:
+            data = json.loads(message)
+            print(f"Received data: {data}")
+            self.handle_data(data)
+        except json.JSONDecodeError as e:
+            print(f"JSON decode error: {e} - Partial data: {message}")
 
     def handle_data(self, data):
-        logging.debug(f"Handling data: {data}")
         request_id = data.get("request_id")
         if request_id and request_id in self.response_queues:
             self.response_queues[request_id].put(data.get("data"))
@@ -88,7 +95,6 @@ class SocketClient:
             self.handle_update(data.get("data"))
 
     def handle_update(self, data):
-        logging.debug(f"Handling update: {data}")
         for handler in self.update_handlers:
             handler(data)
 
