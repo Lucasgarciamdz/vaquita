@@ -70,7 +70,7 @@ class TransactionMdl(BaseMdl):
             "amount": float(self.amount),
             "transaction_type": self.transaction_type.name,
             "category": self.category.name,
-            "date": self.date.isoformat(),
+            "date": self.date.strftime("%d-%m-%Y %H:%M"),
             "notes": self.notes,
             "recurring": self.recurring,
             "description": self.description,

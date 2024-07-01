@@ -47,6 +47,25 @@ class UserController:
             )
             send_json_response(handler, {"user_id": user_id})
 
+    def handle_create_vaquita(self, handler, body):
+        data = parse_json(body)
+        if data:
+            self.user_svc.create_vaquita(
+                data["bank_name"],
+                data["bank_balance"],
+                data["user_id"],
+                data["password"],
+            )
+            send_json_response(handler, {"message": "Vaquita created"})
+
+    def handle_join_vaquita(self, handler, body):
+        data = parse_json(body)
+        if data:
+            result = self.user_svc.join_vaquita(
+                data["user_id"], data["vaquita_number"], data["password"]
+            )
+            send_json_response(handler, {"result": result})
+
     def handle_login(self, handler, body):
         data = parse_json(body)
         if data:
@@ -68,28 +87,19 @@ class UserController:
             )
             send_json_response(handler, {"message": "Bank created"})
 
-    def handle_join_vaquita(self, handler, body):
-        data = parse_json(body)
-        if data:
-            result = self.user_svc.join_vaquita(
-                data["user_id"], data["vaquita_number"], data["password"]
-            )
-            send_json_response(handler, {"result": result})
-
     def handle_get_user_accounts(self, handler, path):
+        from server import MainServer
+
         user_id = int(path.split("/")[-1])
         accounts = self.user_svc.get_user_accounts(user_id)
         accounts_dict = [account.to_dict(depth=1) for account in accounts]
-        send_json_response(handler, accounts_dict)
 
-    def handle_create_vaquita(self, handler, body):
-        data = parse_json(body)
-        if data:
-            self.user_svc.create_personal_bank(
-                data["bank_name"],
-                data["bank_balance"],
-                data["user_id"],
-                data["password"],
-                personal=False,
-            )
-            send_json_response(handler, {"message": "Vaquita created"})
+        for account in accounts_dict:
+            account_id = account["id"]
+            handler.accounts.add(account_id)
+            if account_id not in MainServer.connected_clients:
+                MainServer.connected_clients[account_id] = []
+            if handler not in MainServer.connected_clients[account_id]:
+                MainServer.connected_clients[account_id].append(handler)
+
+        send_json_response(handler, accounts_dict)

@@ -1,0 +1,150 @@
+/* Global Styles */
+Screen {
+    background: #2c3e50;
+    color: #ecf0f1;
+}
+
+/* Header and Footer */
+Header {
+    dock: top;
+    height: 3;
+    background: #34495e;
+    color: #ecf0f1;
+    padding: 0 1;
+}
+
+Footer {
+    dock: bottom;
+    height: 1;
+    background: #34495e;
+    color: #ecf0f1;
+    padding: 0 1;
+}
+
+/* Common Form Styles */
+RegisterForm, LoginForm, ConfigCheckingAccountScreen, AddTransactionForm {
+    align: center middle;
+    width: 60%;
+    height: auto;
+    background: #34495e;
+    border: round #3498db;
+    padding: 1 2;
+}
+
+/* Input Styles */
+Input {
+    margin: 1 0;
+    width: 100%;
+    background: #2c3e50;
+    color: #ecf0f1;
+    border: tall #3498db;
+}
+
+Input:focus {
+    border: tall #e74c3c;
+}
+
+/* Button Styles */
+Button {
+    width: 100%;
+    margin: 1 0;
+    background: #3498db;
+    color: #ecf0f1;
+    border: none;
+}
+
+Button:hover {
+    background: #2980b9;
+}
+
+/* Label Styles */
+Label {
+    width: 100%;
+    color: #bdc3c7;
+    padding: 0 1;
+}
+
+/* Transaction List Styles */
+TransactionList {
+    width: 100%;
+    height: 100%;
+    border: round #3498db;
+    padding: 1;
+}
+
+/* Account Screen Styles */
+AccountScreen {
+    layout: grid;
+    grid-size: 2;
+    grid-gutter: 1 2;
+    padding: 2;
+}
+
+#account-info {
+    column-span: 2;
+    content-align: center middle;
+    background: #34495e;
+    border: round #3498db;
+    padding: 1;
+}
+
+#transaction-list {
+    row-span: 2;
+    background: #34495e;
+    border: round #3498db;
+    padding: 1;
+}
+
+#add-transaction {
+    align: center middle;
+    background: #34495e;
+    border: round #3498db;
+    padding: 1;
+}
+
+/* Tabs Styles */
+Tabs {
+    width: 100%;
+    height: 3;
+}
+
+Tab {
+    padding: 0 1;
+    color: #bdc3c7;
+    background: #34495e;
+}
+
+Tab:hover {
+    color: #ecf0f1;
+    background: #3498db;
+}
+
+Tab.-active {
+    color: #ecf0f1;
+    background: #2980b9;
+}
+
+/* Static Text Styles */
+Static.title {
+    content-align: center middle;
+    width: 100%;
+    height: 3;
+    background: #34495e;
+    color: #ecf0f1;
+    text-style: bold;
+}
+
+Static.info {
+    width: 100%;
+    padding: 0 1;
+    color: #bdc3c7;
+}
+
+/* Select Styles */
+Select {
+    width: 100%;
+    margin: 1 0;
+    background: #2c3e50;
+    color: #ecf0f1;
+    border: tall #3498db;
+}

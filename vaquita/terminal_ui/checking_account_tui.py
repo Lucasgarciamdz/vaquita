@@ -3,10 +3,12 @@ from textual.app import ComposeResult
 from textual.reactive import reactive
 from textual.screen import Screen
 from textual.widget import Widget
+from textual.containers import ScrollableContainer
 from textual.widgets import Button, Input, Static, Tab, Tabs, Select
 
 from enum import Enum as PyEnum
 from socket_client import SocketClient
+from terminal_ui.config_checking_account import ConfigCheckingAccountScreen
 
 
 socket_client = SocketClient()
@@ -86,8 +88,8 @@ class AddTransactionScreen(Screen):
     def add_transaction(self, event):
         form_data = self.query(Input)
         amount = form_data[0].value
-        notes = form_data[1].value
-        description = form_data[2].value
+        notes = ""
+        description = form_data[1].value
 
         body = {
             "account_id": self.account_id,
@@ -100,7 +102,7 @@ class AddTransactionScreen(Screen):
         }
 
         socket_client.send_request_and_get_response(
-            "/transactions/add", method="POST", body=body
+            "/checking_accounts/transactions/add", method="POST", body=body
         )
 
         self.dismiss(True)
@@ -118,7 +120,6 @@ class AddTransactionScreen(Screen):
         yield Input(placeholder="Amount", id="amount")
         yield Select(self.transaction_types, id="transaction_types")
         yield Select(self.transaction_categories, id="transaction_categories")
-        yield Input(placeholder="Notes", id="notes")
         yield Input(placeholder="Description", id="description")
         yield Button("Add transaction", id="add_transaction")
 
@@ -126,28 +127,34 @@ class AddTransactionScreen(Screen):
 class CheckingAccountScreen(Screen):
     refresh_transactions = reactive(False, recompose=True)
 
-    def __init__(self, response_dict, user_id):
+    def __init__(self, response_dict=None, user_id=None):
         super().__init__()
         self.user_id = user_id
+        if not response_dict:
+            response_dict = socket_client.send_request_and_get_response(
+                f"/users/accounts/{self.user_id}", method="GET"
+            )
         self.user_checking_accounts = response_dict
         self.transactions_list = self.user_checking_accounts[0]["transactions"]
         self.current_account = self.user_checking_accounts[0]
         socket_client.add_update_handler(self.handle_update)
 
     def handle_update(self, data):
-        # Update logic based on received data
-        if data.get("type") == "transaction_update":
-            if data.get("account_id") == self.current_account["id"]:
-                self.transactions_list.append(data["transaction"])
-                self.refresh_transactions = not self.refresh_transactions
+        if (
+            data.get("type") == "transaction_update"
+            and data.get("account_id") == self.current_account["id"]
+        ):
+            self.transactions_list.append(data["transaction"])
+            self.refresh_transactions = not self.refresh_transactions
 
     @on(Button.Pressed, "#add_transaction")
     def add_transaction(self):
         def reload_transactions(transaction_created):
             response = socket_client.send_request_and_get_response(
-                f'/accounts/{self.current_account["id"]}/transactions', method="GET"
+                f'/checking_accounts/transactions/{self.current_account["id"]}',
+                method="GET",
             )
-            self.transactions_list = response.get("transactions", [])
+            self.transactions_list = response
             self.refresh_transactions = not self.refresh_transactions
 
         self.app.push_screen(
@@ -155,8 +162,16 @@ class CheckingAccountScreen(Screen):
             callback=reload_transactions,
         )
 
+    @on(Button.Pressed, "#add_checking_account")
+    def on_add_checking_account_pressed(self):
+        self.app.push_screen(
+            ConfigCheckingAccountScreen(self.user_id),
+            callback=CheckingAccountScreen(user_id=self.user_id),
+        )
+
     def compose(self) -> ComposeResult:
         yield CheckingAccountTabs(self.user_checking_accounts)
+        yield Button("+", variant="success", id="add_checking_account")
         yield Static("Account number: " + str(self.current_account["account_number"]))
         yield Static("Balance: " + str(self.current_account["balance"]))
         yield CheckingAccountTransactions(self.transactions_list)

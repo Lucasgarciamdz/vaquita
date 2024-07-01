@@ -1,5 +1,6 @@
 import random
 import string
+import json
 from datetime import datetime
 
 from models.bank.checking_account_mdl import CheckingAccountMdl
@@ -49,6 +50,7 @@ class CheckingAccountSvc:
         self.transaction_repo.add(transaction)
         account.transactions.append(transaction)
         self.checking_account_repo.update(account)
+        return transaction
 
     def get_transactions(self, account_id):
         account = self.checking_account_repo.get(account_id)

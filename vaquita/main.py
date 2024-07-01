@@ -30,7 +30,7 @@ class VaquitaApp(App):
 
     def on_mount(self):
         def display_main_account(user_id):
-            self.push_screen(CheckingAccountScreen(user_id))
+            self.push_screen(CheckingAccountScreen(response_dict=None, user_id=user_id))
 
         def display_main_menu(user_id):
             response_dict = self.client.send_request_and_get_response(

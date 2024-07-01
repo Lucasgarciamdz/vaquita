@@ -10,14 +10,21 @@ class UserSvc:
         self.user_repo = UserRepo()
 
     def register(self, name, email, password):
-        user = UserMdl()
-        user.name = name
-        user.email = email
+        user = UserMdl(name=name, email=email)
         user.set_password(password)
         self.user_repo.add(user)
-
         new_user = self.user_repo.get_by_email(email)
         return new_user.id
+
+    def create_vaquita(self, bank_name, bank_balance, user_id, password):
+        user = self.user_repo.get(user_id)
+        checking_account_service.create_account(
+            bank_name, bank_balance, user, password, personal=False
+        )
+
+    def join_vaquita(self, user_id, vaquita_number, password):
+        user = self.user_repo.get(user_id)
+        return checking_account_service.join_account(vaquita_number, user, password)
 
     def login(self, email, password):
         user = self.user_repo.get_by_email(email)
@@ -43,7 +50,3 @@ class UserSvc:
         checking_account_service.create_account(
             bank_name, bank_balance, user, password, personal
         )
-
-    def join_vaquita(self, user_id, vaquita_number, password):
-        user = self.user_repo.get(user_id)
-        return checking_account_service.join_account(vaquita_number, user, password)

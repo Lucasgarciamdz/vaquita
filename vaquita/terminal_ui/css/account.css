@@ -1,11 +1,11 @@
 /* Center the form */
-AddTransactionForm, TransactionList, AccountScreen {
+/* AddTransactionForm, TransactionList, AccountScreen {
     align: center middle;
     width: 75%;
     margin: 1;
     padding: 1;
     box-sizing: border-box;
-}
+} */
 
 /* Add some margin to the inputs */
 Input {
@@ -30,4 +30,23 @@ Label {
     margin: 1;
     width: 100%;
     color: white;
+}
+
+#tabs_container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+#tabs_container > * {
+    flex: 1;
+}
+
+#add_checking_account {
+    flex: none; /* Prevent the button from growing */
+    margin-left: auto; /* Push the button to the right */
+}
+
+#checking_account_tabs{
+    layout: horizontal;
 }
