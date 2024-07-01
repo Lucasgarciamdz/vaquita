@@ -1,20 +1,12 @@
 from textual.app import App, ComposeResult
 from textual.widgets import Header, Footer, Static
 
-from database.database_manager import DatabaseManager
-from services.checking_account_svc import CheckingAccountSvc
-from services.user_svc import UserSvc
 from socket_client import SocketClient
 from terminal_ui.checking_account_tui import CheckingAccountScreen
 from terminal_ui.config_checking_account import ConfigCheckingAccountScreen
 from terminal_ui.user_tui import RegisterForm, LoginForm
 from terminal_ui.welcoming_tui import WelcomingScreen
 
-db = DatabaseManager()
-
-checking_account_service = CheckingAccountSvc()
-
-user_service = UserSvc()
 
 STATUS = ""
 MESSAGE = ""

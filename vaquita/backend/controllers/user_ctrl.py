@@ -90,9 +90,9 @@ class UserController:
             )
             send_json_response(handler, {"message": "Bank created"})
 
-
     def handle_get_user_accounts(self, handler, path):
         from server import MainServer
+
         user_id = int(path.split("/")[-1])
         accounts = self.user_svc.get_user_accounts(user_id)
         accounts_dict = [account.to_dict(depth=1) for account in accounts]

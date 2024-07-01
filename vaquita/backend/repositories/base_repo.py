@@ -4,6 +4,7 @@ from sqlalchemy.orm import scoped_session
 from config.logger_config import setup_custom_logger
 import hashlib
 
+
 class BaseRepo:
     logged_operations = set()  # Make logged_operations a class variable
 
@@ -55,8 +56,8 @@ class BaseRepo:
 
     def _generate_operation_key(self, operation, **kwargs):
         # If 'entity' is in kwargs and it has an 'id' attribute, use only the operation and entity ID for the key
-        entity = kwargs.get('entity')
-        if entity and hasattr(entity, 'id'):
+        entity = kwargs.get("entity")
+        if entity and hasattr(entity, "id"):
             key_str = f"{operation}:{entity.id}"
         else:
             # Fallback to using all kwargs if 'entity' or 'entity.id' is not available

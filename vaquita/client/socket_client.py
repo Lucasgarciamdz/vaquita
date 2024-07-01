@@ -6,7 +6,10 @@ import uuid
 from queue import Queue, Empty
 import logging
 
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(
+    level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s"
+)
+
 
 class SocketClient:
     _instance = None
@@ -21,13 +24,15 @@ class SocketClient:
         return cls._instance
 
     def _initialize(self):
-        self.host = "localhost"
+        self.host = "192.168.3.35"
         self.port = 22229
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.connect()
         self.lock = threading.Lock()
         self.response_queues = {}
-        self.listener_thread = threading.Thread(target=self.listen_for_updates, daemon=True)
+        self.listener_thread = threading.Thread(
+            target=self.listen_for_updates, daemon=True
+        )
         self.listener_thread.start()
         self.update_handlers = []
         self.partial_data = ""
@@ -68,9 +73,13 @@ class SocketClient:
                 if data_chunk:
                     self.partial_data += data_chunk
                     while "\r\n\r\n" in self.partial_data:
-                        headers, self.partial_data = self.partial_data.split("\r\n\r\n", 1)
+                        headers, self.partial_data = self.partial_data.split(
+                            "\r\n\r\n", 1
+                        )
                         if "Content-Length" in headers:
-                            content_length = int(headers.split("Content-Length: ")[1].split("\r\n")[0])
+                            content_length = int(
+                                headers.split("Content-Length: ")[1].split("\r\n")[0]
+                            )
                             if len(self.partial_data) >= content_length:
                                 message = self.partial_data[:content_length]
                                 self.partial_data = self.partial_data[content_length:]

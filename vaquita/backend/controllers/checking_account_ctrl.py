@@ -14,13 +14,19 @@ def send_json_response(handler, data):
 
 def notify_clients(account_id, transaction):
     from server import MainServer
+
     for client_info in MainServer.connected_clients.values():
         if account_id in client_info["accounts"]:
-            response = json.dumps({
-                "type": "transaction_update",
-                "account_id": account_id,
-                "transaction": transaction.to_dict(),
-            }).encode("utf-8") + b"\n"
+            response = (
+                json.dumps(
+                    {
+                        "type": "transaction_update",
+                        "account_id": account_id,
+                        "transaction": transaction.to_dict(),
+                    }
+                ).encode("utf-8")
+                + b"\n"
+            )
 
             try:
                 client_info["handler"].wfile.write(response)
@@ -28,7 +34,6 @@ def notify_clients(account_id, transaction):
                 print(f"Sent update to client {client_info['ip']}: {response}")
             except Exception as e:
                 print(f"Failed to send update to client {client_info['ip']}: {e}")
-
 
 
 class CheckingAccountController:

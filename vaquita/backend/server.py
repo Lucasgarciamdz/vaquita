@@ -18,11 +18,16 @@ class EnhancedJSONEncoder(json.JSONEncoder):
 
 class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
     allow_reuse_address = True
-    
-    def __init__(self, server_address, RequestHandlerClass, bind_and_activate=True, address_family=socket.AF_INET):
+
+    def __init__(
+        self,
+        server_address,
+        RequestHandlerClass,
+        bind_and_activate=True,
+        address_family=socket.AF_INET,
+    ):
         self.address_family = address_family
         super().__init__(server_address, RequestHandlerClass, bind_and_activate)
-
 
 
 logging.basicConfig(
@@ -33,6 +38,7 @@ logging.basicConfig(
 class MainServer(socketserver.StreamRequestHandler):
     client_count = 0
     connected_clients = {}
+    connected_clients_lock = threading.Lock()
 
     def setup(self):
         super().setup()
@@ -56,10 +62,25 @@ class MainServer(socketserver.StreamRequestHandler):
     def finish(self):
         super().finish()
         client_ip = self.client_address[0]
-        MainServer.client_count -= 1
-        logging.info(
-            f"Client disconnected: {client_ip}. Total connected clients: {MainServer.client_count}"
-        )
+        with MainServer.connected_clients_lock:
+            uuid_to_remove = None
+            print(f"Connected clients: {MainServer.connected_clients}")
+            print(f"Client IP: {client_ip}")
+            print(self)
+            for uuid_key, client_info in MainServer.connected_clients.items():
+                if client_info["ip"] == client_ip and client_info["handler"] == self:
+                    uuid_to_remove = uuid_key
+                    break
+            if uuid_to_remove:
+                del MainServer.connected_clients[uuid_to_remove]
+                MainServer.client_count -= 1
+                logging.info(
+                    f"Client disconnected: {client_ip} (UUID: {uuid_to_remove}). Total connected clients: {MainServer.client_count}"
+                )
+            else:
+                logging.warning(
+                    f"Failed to find a connected client with IP: {client_ip}"
+                )
 
     def handle(self):
         try:
@@ -125,13 +146,20 @@ class MainServer(socketserver.StreamRequestHandler):
 
 
 if __name__ == "__main__":
-    HOST, PORT = "0.0.0.0", 22229  # Use "0.0.0.0" for IPv4 or "::" for IPv6 to listen on all interfaces
+    HOST, PORT = (
+        "0.0.0.0",
+        22229,
+    )  # Use "0.0.0.0" for IPv4 or "::" for IPv6 to listen on all interfaces
     try:
-        addr_info = socket.getaddrinfo(HOST, PORT, socket.AF_UNSPEC, socket.SOCK_STREAM, 0, socket.AI_PASSIVE)
+        addr_info = socket.getaddrinfo(
+            HOST, PORT, socket.AF_UNSPEC, socket.SOCK_STREAM, 0, socket.AI_PASSIVE
+        )
         addr_family = addr_info[0][0]  # Get address family based on the host
 
         print(f"Server starting on {HOST}:{PORT} with address family {addr_family}")
-        with ThreadedTCPServer((HOST, PORT), MainServer, address_family=addr_family) as server:
+        with ThreadedTCPServer(
+            (HOST, PORT), MainServer, address_family=addr_family
+        ) as server:
             server.serve_forever()
     except Exception as e:
         print(f"Failed to start server: {e}")

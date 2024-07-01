@@ -2,12 +2,7 @@ from textual import on
 from textual.screen import Screen
 from textual.widgets import Button, Input, Static
 
-from services.checking_account_svc import CheckingAccountSvc
-from services.user_svc import UserSvc
 from socket_client import SocketClient
-
-account_service = CheckingAccountSvc()
-user_service = UserSvc()
 
 
 class CreateBankScreen(Screen):
@@ -118,7 +113,7 @@ class JoinVaquitaScreen(Screen):
 
 
 class ConfigCheckingAccountScreen(Screen):
-    CSS_PATH = "./css/config_checking_account.css"
+    CSS_PATH = "css/config_checking_account.css"
 
     def __init__(self, user_id: int):
         super().__init__()
