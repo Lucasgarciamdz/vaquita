@@ -123,7 +123,10 @@ class ConfigCheckingAccountScreen(Screen):
     def show_create_bank(self):
         def check_bank_created(created):
             if created:
-                self.dismiss(self.user_id)
+                try:
+                    self.dismiss(self.user_id)
+                except Exception:
+                    self.app.pop_screen()
             else:
                 self.mount(Static("Error creating bank"))
 
@@ -133,7 +136,10 @@ class ConfigCheckingAccountScreen(Screen):
     def show_create_vaquita(self):
         def check_vaquita_created(created):
             if created:
-                self.dismiss(self.user_id)
+                try:
+                    self.dismiss(self.user_id)
+                except Exception:
+                    self.app.pop_screen()
             else:
                 self.mount(Static("Error creating vaquita"))
 
@@ -143,7 +149,10 @@ class ConfigCheckingAccountScreen(Screen):
     def show_join_vaquita(self):
         def check_vaquita_joined(created):
             if created:
-                self.dismiss(self.user_id)
+                try:
+                    self.dismiss(self.user_id)
+                except Exception:
+                    self.app.pop_screen()
             else:
                 self.mount(Static("Error creating vaquita"))
 

@@ -42,25 +42,20 @@ class CheckingAccountTabs(Widget):
         super().__init__()
         self.user_id = user_id
         self.checking_account_list = checking_account_list
-        self.respose_dict = None
-
-    def on_mount(self) -> None:
-        if not self.query_one(Tabs).has_focus:
-            self.query_one(Tabs).focus()
 
     def compose(self):
         tab_list = []
         if self.checking_account_list:
             for account in self.checking_account_list:
-                tab = Tab(label=account["name"], id="id" + str(account["id"]))
+                tab = Tab(
+                    label=f"{account['name']} {account['id']}",
+                    id=f"tab_{account['id']}",
+                )
                 tab_list.append(tab)
         else:
             tab_list.append(Tab("No accounts found"))
 
-        yield Tabs(*tab_list)
-
-    def on_tabs_tab_activated(self, event: Tabs.TabActivated) -> None:
-        return
+        yield Tabs(*tab_list, id="checking_account_tabs")
 
 
 class AccountDetailsWidget(Widget):
@@ -216,11 +211,12 @@ class CheckingAccountScreen(Screen):
             self.current_account = (
                 self.user_checking_accounts[0] if account_id is None else account_id
             )
+            self.original_balance = self.current_account["balance"]
         self.calculate_balance()
-        socket_client.add_update_handler(self.handle_update)
+        socket_client.add_update_handler(self.handle_socket_update)
 
     def calculate_balance(self):
-        balance = self.current_account["balance"]
+        balance = self.original_balance
         for transaction in self.transactions_list:
             if transaction["transaction_type"] == "INCOME":
                 balance += transaction["amount"]
@@ -228,7 +224,7 @@ class CheckingAccountScreen(Screen):
                 balance -= transaction["amount"]
         self.current_account["balance"] = balance
 
-    def handle_update(self, data):
+    def handle_socket_update(self, data):
         if data.get("type") == "transaction_update":
             self.transactions_list.append(data["transaction"])
             self.calculate_balance()
@@ -264,12 +260,41 @@ class CheckingAccountScreen(Screen):
             callback=CheckingAccountScreen(user_id=self.user_id),
         )
 
+    @on(Button.Pressed, "#refresh_transactions")
+    def refresh_transactions(self):
+        if self.current_account:
+            self.transactions_list = socket_client.send_request_and_get_response(
+                f"/checking_accounts/transactions/{self.current_account['id']}",
+                method="GET",
+            )
+            self.calculate_balance()
+            self.update_account_details()
+
+    @on(Tabs.TabActivated)
+    def on_tab_activated(self, event: Tabs.TabActivated):
+        print("TAB ACTIVATED")
+        tab_id = event.tab.id
+        if tab_id.startswith("tab_"):
+            account_id = int(tab_id.split("_")[1])
+            self.current_account = next(
+                account
+                for account in self.user_checking_accounts
+                if account["id"] == account_id
+            )
+            self.transactions_list = socket_client.send_request_and_get_response(
+                f"/checking_accounts/transactions/{account_id}",
+                method="GET",
+            )
+            self.calculate_balance()
+            self.update_account_details()
+
     def compose(self) -> ComposeResult:
         yield ScrollableContainer(
             CheckingAccountTabs(self.user_checking_accounts, self.user_id),
             Button("New account +", variant="success", id="add_checking_account"),
             AccountDetailsWidget(),
             Button("Add transaction", id="add_transaction"),
+            Button("Refresh transactions", id="refresh_transactions"),
         )
 
     def on_mount(self) -> None:

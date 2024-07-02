@@ -24,6 +24,7 @@ class SocketClient:
         return cls._instance
 
     def _initialize(self):
+        super().__init__()
         self.host = "192.168.3.35"
         self.port = 22229
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -105,7 +106,7 @@ class SocketClient:
         if request_id and request_id in self.response_queues:
             self.response_queues[request_id].put(data.get("data"))
         else:
-            self.handle_update(data.get("data"))
+            self.handle_update(data)
 
     def handle_update(self, data):
         for handler in self.update_handlers:
