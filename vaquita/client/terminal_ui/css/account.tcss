@@ -1,0 +1,85 @@
+/* CSS file for account.tcss */
+
+/* General styles */
+CheckingAccountScreen {
+    align: center middle;
+}
+
+AddTransactionScreen {
+    align: center middle;
+}
+
+/* Tabs styling */
+Tabs {
+    height: 3;
+    dock: top;
+    border-bottom: tall #007acc;
+}
+
+/* Button styling */
+Button {
+    padding: 1 2;
+    margin: 1;
+    background: #007acc;
+    color: white;
+    border: none;
+}
+
+Button:focus, Button:hover {
+    background: #005f99;
+}
+
+/* Input and Select styling */
+Input, Select {
+    margin: 1;
+}
+
+Input:focus, Select:focus {
+}
+
+/* Transaction List styling */
+#transactions_list {
+    offset-y: -50%;
+    margin: 2;
+    padding: 1;
+    background: #f9f9f9;
+    border: solid #ccc;
+    color: #333;
+    border-bottom: solid #005f99;
+    border-top: solid #005f99;
+    background: #007acc;
+    color: white;
+    padding: 1;
+    border-bottom: solid #005f99;
+    border-top: solid #005f99;
+}
+
+/* Add Transaction Screen styling */
+#add_transaction_screen {
+    background: #f0f0f0;
+    padding: 2;
+    border: solid #ccc;
+}
+
+#add_transaction_screen Static {
+    margin-bottom: 1;
+}
+
+#add_transaction_screen Input, #add_transaction_screen Select, #add_transaction_screen Button {
+    width: 100%;
+    margin-bottom: 1;
+}
+
+#add_transaction_screen Button {
+    background: #28a745;
+}
+
+#add_transaction_screen Button:focus, #add_transaction_screen Button:hover {
+    background: #218838;
+}
+
+/* Scrollable container styling */
+ScrollableContainer {
+    padding: 1;
+    margin: 1;
+}

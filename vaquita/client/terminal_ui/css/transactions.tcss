@@ -1,0 +1,29 @@
+.income {
+    color: green;
+}
+
+.expense {
+    color: red;
+}
+
+.transfer {
+    color: blue;
+}
+
+.balance-positive {
+    color: green;
+}
+
+.balance-negative {
+    color: red;
+}
+
+#transactions_list {
+    # offset-y: -50%;
+    # margin: 2;
+    # padding: 1;
+    # border: solid #ccc;
+    # color: #333;
+    # border-bottom: solid #005f99;
+    # border-top: solid #005f99;
+}
