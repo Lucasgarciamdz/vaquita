@@ -1,6 +1,6 @@
-from database.database_manager import DatabaseManager
-from models.user_mdl import UserMdl
-from repositories.base_repo import BaseRepo
+from backend.database.database_manager import DatabaseManager
+from backend.models.user_mdl import UserMdl
+from backend.repositories.base_repo import BaseRepo
 
 db = DatabaseManager()
 

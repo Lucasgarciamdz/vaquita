@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, Numeric, JSON
 
-from models.base_mdl import BaseMdl
+from backend.models.base_mdl import BaseMdl
 
 
 class StatisticsMdl(BaseMdl):

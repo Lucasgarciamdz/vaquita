@@ -1,6 +1,6 @@
 from logging import Logger
-from config.logger_config import setup_custom_logger
-from database.database_manager import DatabaseManager
+from backend.config.logger_config import setup_custom_logger
+from backend.database.database_manager import DatabaseManager
 
 READYZ_FAIL_STATUS = 500
 READYZ_OK_STATUS = 200

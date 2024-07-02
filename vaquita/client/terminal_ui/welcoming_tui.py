@@ -4,7 +4,7 @@ from textual.widgets import Button
 
 
 class WelcomingScreen(Screen):
-    CSS_PATH = "./css/user.css"
+    CSS_PATH = "css/user.css"
 
     @on(Button.Pressed, "#register")
     def show_register(self):

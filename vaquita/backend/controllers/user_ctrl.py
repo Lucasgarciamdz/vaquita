@@ -2,7 +2,7 @@ import json
 import uuid
 
 
-from services.user_svc import UserSvc
+from backend.services.user_svc import UserSvc
 
 
 def parse_json(body):
@@ -91,7 +91,7 @@ class UserController:
             send_json_response(handler, {"message": "Bank created"})
 
     def handle_get_user_accounts(self, handler, path):
-        from server import MainServer
+        from backend.server import MainServer
 
         user_id = int(path.split("/")[-1])
         accounts = self.user_svc.get_user_accounts(user_id)

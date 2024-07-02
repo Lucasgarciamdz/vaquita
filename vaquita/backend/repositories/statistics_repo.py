@@ -1,6 +1,6 @@
 from base_repo import BaseRepo
-from vaquita.database.database_manager import DatabaseManager
-from vaquita.models.statistics.statistics_mdl import StatisticsMdl
+from backend.database.database_manager import DatabaseManager
+from backend.models.statistics.statistics_mdl import StatisticsMdl
 
 db = DatabaseManager()
 

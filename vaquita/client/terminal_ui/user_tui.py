@@ -6,7 +6,7 @@ from socket_client import SocketClient
 
 
 class RegisterForm(Screen):
-    CSS_PATH = "./css/user.css"
+    CSS_PATH = "css/user.css"
 
     def __init__(self):
         super().__init__()
@@ -41,7 +41,7 @@ class RegisterForm(Screen):
 
 
 class LoginForm(Screen):
-    CSS_PATH = "./css/user.css"
+    CSS_PATH = "css/user.css"
 
     def __init__(self):
         super().__init__()

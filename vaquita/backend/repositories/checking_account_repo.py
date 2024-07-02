@@ -1,6 +1,6 @@
-from database.database_manager import DatabaseManager
-from models.bank.checking_account_mdl import CheckingAccountMdl
-from repositories.base_repo import BaseRepo
+from backend.database.database_manager import DatabaseManager
+from backend.models.bank.checking_account_mdl import CheckingAccountMdl
+from backend.repositories.base_repo import BaseRepo
 
 db = DatabaseManager()
 

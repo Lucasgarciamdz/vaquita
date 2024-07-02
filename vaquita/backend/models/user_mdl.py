@@ -2,8 +2,8 @@ from sqlalchemy import Column, Integer, String
 from sqlalchemy.orm import relationship
 from werkzeug.security import generate_password_hash, check_password_hash
 
-from models.bank.checking_account_mdl import user_account_association
-from models.base_mdl import BaseMdl
+from backend.models.bank.checking_account_mdl import user_account_association
+from backend.models.base_mdl import BaseMdl
 
 
 class UserMdl(BaseMdl):

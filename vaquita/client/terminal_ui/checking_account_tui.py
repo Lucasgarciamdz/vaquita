@@ -1,16 +1,17 @@
+from enum import Enum as PyEnum
+
+from rich.panel import Panel
+from rich.table import Table
+from rich.text import Text
+from socket_client import SocketClient
+from terminal_ui.config_checking_account import ConfigCheckingAccountScreen
 from textual import on
 from textual.app import ComposeResult
+from textual.containers import ScrollableContainer, Vertical
 from textual.reactive import reactive
 from textual.screen import Screen
 from textual.widget import Widget
-from textual.widgets import Button, Input, Static, Tab, Tabs, Select
-from textual.containers import ScrollableContainer
-
-
-from enum import Enum as PyEnum
-from socket_client import SocketClient
-from terminal_ui.config_checking_account import ConfigCheckingAccountScreen
-
+from textual.widgets import Button, Input, Select, Static, Tab, Tabs
 
 socket_client = SocketClient()
 
@@ -62,34 +63,73 @@ class CheckingAccountTabs(Widget):
         return
 
 
-class CheckingAccountTransactions(Widget):
-    transactions_list = reactive("transactions_list", recompose=True)
+class AccountDetailsWidget(Widget):
+    """Widget to display account details and transactions."""
 
-    def __init__(self, transaction_list_initial):
-        super().__init__()
-        self.transactions_list = transaction_list_initial
+    account_number = reactive("")
+    balance = reactive(0.0)
+    transactions = reactive([])
 
-    def render(self):
-        header = "\nTransactions:\n" + "-" * 80 + "\n"
-        header += (
-            f"{'Date':<20}{'Type':<10}{'Category':<15}{'Amount':<10}{'Description':<25}\n"
-            + "-" * 80
+    def compose(self):
+        yield Vertical(
+            Static("", id="account_number"),
+            Static("", id="balance"),
+            Static("", id="transactions"),
         )
 
-        body = ""
-        for transaction in self.transactions_list:
+    def on_mount(self):
+        self.update_display()
+
+    def watch_account_number(self, new_value):
+        self.update_display()
+
+    def watch_balance(self, new_value):
+        self.update_display()
+
+    def watch_transactions(self, new_value):
+        self.update_display()
+
+    def update_display(self):
+        self.query_one("#account_number", Static).update(
+            f"Account number: {self.account_number}"
+        )
+
+        balance_text = f"Balance: ${self.balance:.2f}"
+        balance_color = "green" if self.balance >= 0 else "red"
+        self.query_one("#balance", Static).update(
+            Text(balance_text, style=balance_color)
+        )
+
+        table = Table(title="Transactions", expand=True)
+        table.add_column("Date", style="cyan", no_wrap=True)
+        table.add_column("Type", style="magenta")
+        table.add_column("Category", style="white")
+        table.add_column("Amount", justify="right", style="cyan")
+        table.add_column("Description")
+
+        for transaction in self.transactions:
             date = transaction["date"]
             transaction_type = transaction["transaction_type"].capitalize()
             category = transaction["category"].capitalize()
-            amount = f"${transaction['amount']:.2f}"
-            description = transaction["description"][
-                :25
-            ]  # Truncate description if too long
-            body += f"\n{date:<20}{transaction_type:<10}{category:<15}{amount:<10}{description:<25}"
+            amount = transaction["amount"]
+            sign = "+" if transaction_type == "Income" else "-"
+            color = {"Income": "green", "Expense": "red", "Transfer": "blue"}.get(
+                transaction_type, "white"
+            )
 
-        footer = "\n" + "-" * 80
+            amount_str = f"{sign}${abs(amount):.2f}"
+            description = transaction["description"][:25]
 
-        return header + body + footer
+            table.add_row(
+                date,
+                Text(transaction_type, style=color),
+                category,
+                Text(amount_str, style=color),
+                description,
+            )
+
+        panel = Panel(table, title="Transactions", border_style="blue")
+        self.query_one("#transactions", Static).update(panel)
 
 
 class AddTransactionScreen(Screen):
@@ -147,8 +187,6 @@ class AddTransactionScreen(Screen):
 class CheckingAccountScreen(Screen):
     CSS_PATH = "./css/account.tcss"
 
-    refresh_transactions = reactive("refresh", recompose=True)
-
     def __init__(self, response_dict=None, user_id=None, account_id=None):
         super().__init__()
         self.user_id = user_id
@@ -160,7 +198,6 @@ class CheckingAccountScreen(Screen):
                         f"/users/accounts/{self.user_id}", method="GET"
                     )
                 )
-
         else:
             self.user_checking_accounts = response_dict
 
@@ -179,12 +216,30 @@ class CheckingAccountScreen(Screen):
             self.current_account = (
                 self.user_checking_accounts[0] if account_id is None else account_id
             )
+        self.calculate_balance()
         socket_client.add_update_handler(self.handle_update)
+
+    def calculate_balance(self):
+        balance = self.current_account["balance"]
+        for transaction in self.transactions_list:
+            if transaction["transaction_type"] == "INCOME":
+                balance += transaction["amount"]
+            else:
+                balance -= transaction["amount"]
+        self.current_account["balance"] = balance
 
     def handle_update(self, data):
         if data.get("type") == "transaction_update":
             self.transactions_list.append(data["transaction"])
-            self.refresh_transactions = not self.refresh_transactions
+            self.calculate_balance()
+            self.update_account_details()
+
+    def update_account_details(self):
+        account_details = self.query_one(AccountDetailsWidget)
+        account_details.account_number = str(self.current_account["account_number"])
+        account_details.balance = self.current_account["balance"]
+        account_details.transactions = self.transactions_list
+        self.refresh()
 
     @on(Button.Pressed, "#add_transaction")
     def add_transaction(self):
@@ -194,7 +249,8 @@ class CheckingAccountScreen(Screen):
                 method="GET",
             )
             self.transactions_list = response
-            self.refresh_transactions = not self.refresh_transactions
+            self.calculate_balance()
+            self.update_account_details()
 
         self.app.push_screen(
             AddTransactionScreen(self.user_id, self.current_account["id"]),
@@ -208,20 +264,13 @@ class CheckingAccountScreen(Screen):
             callback=CheckingAccountScreen(user_id=self.user_id),
         )
 
-    @on(Tabs.TabActivated, "#id*")
-    def on_tab_activated(self, event: Tabs.TabActivated):
-        self.transactions_list = socket_client.send_request_and_get_response(
-            f"/checking_accounts/transactions/{int(event.tab.id[2:])}",
-            method="GET",
-        )
-        self.refresh_transactions = not self.refresh_transactions
-
     def compose(self) -> ComposeResult:
         yield ScrollableContainer(
             CheckingAccountTabs(self.user_checking_accounts, self.user_id),
-            Button("+", variant="success", id="add_checking_account"),
-            Static("Account number: " + str(self.current_account["account_number"])),
-            Static("Balance: " + str(self.current_account["balance"])),
-            CheckingAccountTransactions(self.transactions_list),
+            Button("New account +", variant="success", id="add_checking_account"),
+            AccountDetailsWidget(),
             Button("Add transaction", id="add_transaction"),
         )
+
+    def on_mount(self) -> None:
+        self.update_account_details()

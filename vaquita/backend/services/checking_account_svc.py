@@ -1,16 +1,15 @@
 import random
 import string
-import json
 from datetime import datetime
 
-from models.bank.checking_account_mdl import CheckingAccountMdl
-from models.bank.transaction_mdl import (
+from backend.models.bank.checking_account_mdl import CheckingAccountMdl
+from backend.models.bank.transaction_mdl import (
     TransactionMdl,
     TransactionType,
     TransactionCategory,
 )
-from repositories.checking_account_repo import CheckingAccountRepo
-from repositories.transaction_repo import TransactionRepo
+from backend.repositories.checking_account_repo import CheckingAccountRepo
+from backend.repositories.transaction_repo import TransactionRepo
 
 
 class CheckingAccountSvc:

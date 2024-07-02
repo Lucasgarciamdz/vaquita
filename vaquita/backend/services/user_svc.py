@@ -1,6 +1,6 @@
-from models.user_mdl import UserMdl
-from repositories.user_repo import UserRepo
-from services.checking_account_svc import CheckingAccountSvc
+from backend.models.user_mdl import UserMdl
+from backend.repositories.user_repo import UserRepo
+from backend.services.checking_account_svc import CheckingAccountSvc
 
 checking_account_service = CheckingAccountSvc()
 

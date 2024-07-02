@@ -10,8 +10,8 @@ from sqlalchemy import create_engine, exc, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import scoped_session, sessionmaker
 
-from config.logger_config import setup_custom_logger
-from models.base_mdl import BaseMdl
+from backend.config.logger_config import setup_custom_logger
+from backend.models.base_mdl import BaseMdl
 
 # Get the absolute path of the directory where the script is located
 script_dir = os.path.dirname(os.path.abspath(__file__))

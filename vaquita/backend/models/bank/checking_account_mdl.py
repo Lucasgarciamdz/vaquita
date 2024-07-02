@@ -2,7 +2,7 @@ from sqlalchemy import Column, ForeignKey, Integer, Numeric, String, Table, Meta
 from sqlalchemy.orm import relationship
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from models.base_mdl import BaseMdl
+from backend.models.base_mdl import BaseMdl
 
 metadata = MetaData()
 

@@ -1,6 +1,6 @@
-from database.database_manager import DatabaseManager
-from models.bank.transaction_mdl import TransactionMdl
-from repositories.base_repo import BaseRepo
+from backend.database.database_manager import DatabaseManager
+from backend.models.bank.transaction_mdl import TransactionMdl
+from backend.repositories.base_repo import BaseRepo
 
 db = DatabaseManager()
 

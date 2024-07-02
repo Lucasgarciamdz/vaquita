@@ -72,19 +72,23 @@ class SocketClient:
                 data_chunk = self.sock.recv(16384).decode("utf-8")
                 if data_chunk:
                     self.partial_data += data_chunk
+
                     while "\r\n\r\n" in self.partial_data:
-                        headers, self.partial_data = self.partial_data.split(
-                            "\r\n\r\n", 1
-                        )
+                        headers, body = self.partial_data.split("\r\n\r\n", 1)
                         if "Content-Length" in headers:
                             content_length = int(
                                 headers.split("Content-Length: ")[1].split("\r\n")[0]
                             )
-                            if len(self.partial_data) >= content_length:
-                                message = self.partial_data[:content_length]
-                                self.partial_data = self.partial_data[content_length:]
+
+                            if len(body) >= content_length:
+                                message = body[:content_length]
+                                self.partial_data = body[content_length:]
                                 if message:
                                     self.process_message(message)
+                            else:
+                                break
+                        else:
+                            break
             except Exception as e:
                 print(f"Error in listener thread: {e}")
 

@@ -4,7 +4,7 @@ from rich.prompt import Prompt
 from textual.app import App
 from textual.widgets import Placeholder
 
-from vaquita.statistics import StatisticsSvc
+from client import StatisticsSvc
 
 
 class StatisticsApp(App):

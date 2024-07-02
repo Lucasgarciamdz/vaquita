@@ -12,7 +12,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import relationship
 
-from models.base_mdl import BaseMdl
+from backend.models.base_mdl import BaseMdl
 
 
 class TransactionCategory(PyEnum):
